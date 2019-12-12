@@ -1,36 +1,16 @@
 package com.uddernetworks.drivestore;
 
-import com.google.api.client.googleapis.media.MediaHttpUploader;
-import com.google.api.client.googleapis.media.MediaHttpUploaderProgressListener;
 import com.google.api.client.http.ByteArrayContent;
-import com.google.api.client.http.FileContent;
-import com.google.api.client.http.InputStreamContent;
-import com.google.api.client.util.ByteArrayStreamingContent;
 import com.google.api.services.docs.v1.Docs;
-import com.google.api.services.docs.v1.model.BatchUpdateDocumentRequest;
-import com.google.api.services.docs.v1.model.Body;
-import com.google.api.services.docs.v1.model.CreateNamedRangeRequest;
-import com.google.api.services.docs.v1.model.Document;
-import com.google.api.services.docs.v1.model.InsertTextRequest;
-import com.google.api.services.docs.v1.model.Location;
-import com.google.api.services.docs.v1.model.Paragraph;
-import com.google.api.services.docs.v1.model.ParagraphElement;
-import com.google.api.services.docs.v1.model.Range;
-import com.google.api.services.docs.v1.model.ReplaceAllTextRequest;
-import com.google.api.services.docs.v1.model.Request;
-import com.google.api.services.docs.v1.model.SectionBreak;
-import com.google.api.services.docs.v1.model.StructuralElement;
-import com.google.api.services.docs.v1.model.TextRun;
 import com.google.api.services.docs.v1.model.TextStyle;
-import com.google.api.services.docs.v1.model.UpdateTextStyleRequest;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.model.File;
 import com.google.api.services.drive.model.FileList;
-import org.apache.commons.io.IOUtils;
+import com.uddernetworks.drivestore.docs.ProgressListener;
+import com.uddernetworks.drivestore.docs.RequestBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
@@ -38,6 +18,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static com.uddernetworks.drivestore.COptional.getCOptional;
@@ -56,24 +37,6 @@ public class DocManager {
         this.docStore = docStore;
         this.docs = docStore.getDocs();
         this.drive = docStore.getDrive();
-    }
-
-    class CustomProgressListener implements MediaHttpUploaderProgressListener {
-        public void progressChanged(MediaHttpUploader uploader) throws IOException {
-            switch (uploader.getUploadState()) {
-                case INITIATION_STARTED:
-                    System.out.println("Initiation has started!");
-                    break;
-                case INITIATION_COMPLETE:
-                    System.out.println("Initiation is complete!");
-                    break;
-                case MEDIA_IN_PROGRESS:
-                    System.out.println(uploader.getProgress());
-                    break;
-                case MEDIA_COMPLETE:
-                    System.out.println("Upload is complete!");
-            }
-        }
     }
 
     public void init() {
@@ -123,21 +86,16 @@ public class DocManager {
 //                }
 //            });
 
-            var content = new ByteArrayContent("text/plain", "".getBytes());
-            var request = drive.files().create(new File().setMimeType(Mime.DOCUMENT.getMime()).setName("Doc " + System.currentTimeMillis()), content);
-            request.getMediaHttpUploader().setProgressListener(new CustomProgressListener());
-            var made = request.execute();
+            /*
 
-            docs.documents().batchUpdate(made.getId(), new BatchUpdateDocumentRequest().setRequests(
-                    Arrays.asList(
-                            new Request().setInsertText(new InsertTextRequest().setText("1").setLocation(new Location().setIndex(1))),
-                            new Request().setUpdateTextStyle(new UpdateTextStyleRequest().setRange(new Range().setStartIndex(1).setEndIndex(2)).setTextStyle(new TextStyle().setBold(true)).setFields("*")),
-                            new Request().setInsertText(new InsertTextRequest().setText("2").setLocation(new Location().setIndex(2))),
-                            new Request().setUpdateTextStyle(new UpdateTextStyleRequest().setRange(new Range().setStartIndex(2).setEndIndex(3)).setTextStyle(new TextStyle().setItalic(true)).setFields("*")),
-                            new Request().setInsertText(new InsertTextRequest().setText("3").setLocation(new Location().setIndex(3))),
-                            new Request().setUpdateTextStyle(new UpdateTextStyleRequest().setRange(new Range().setStartIndex(3).setEndIndex(4)).setTextStyle(new TextStyle().setUnderline(true)).setFields("*"))
-                    )
-            )).execute();
+
+             */
+
+            createDocument("Doc " + System.currentTimeMillis(), requestBuilder -> requestBuilder
+                    .addStyledText("one ", new TextStyle().setBold(true))
+                    .addStyledText("two ", new TextStyle().setItalic(true))
+                    .addStyledText("three", new TextStyle().setUnderline(true)));
+
         } catch (IOException e) {
             LOGGER.error("An error occurred while finding or creating docstore directory", e);
         }
@@ -145,16 +103,18 @@ public class DocManager {
         LOGGER.info("Done!");
     }
 
-    private File moveDocument(File file, File to) throws IOException {
-        var pp = drive.files().get(file.getId())
-                .setFields("parents")
-                .execute();
+    public void createDocument(String title, Consumer<RequestBuilder> requestBuilderConsumer) throws IOException {
+        var content = new ByteArrayContent("text/plain", "".getBytes());
+        var request = drive.files().create(new File()
+                .setMimeType(Mime.DOCUMENT.getMime())
+                .setName(title)
+                .setParents(Collections.singletonList(docstore.getId())), content);
+        request.getMediaHttpUploader().setProgressListener(new ProgressListener("Upload"));
+        var created = request.execute();
 
-        return drive.files().update(file.getId(), null)
-                .setAddParents(to.getId())
-                .setRemoveParents(String.join(",", pp.getParents()))
-                .setFields("id, parents")
-                .execute();
+        var requestBuilder = new RequestBuilder(docs);
+        requestBuilderConsumer.accept(requestBuilder);
+        requestBuilder.execute(created.getId());
     }
 
     private List<File> getDocFiles() throws IOException {
