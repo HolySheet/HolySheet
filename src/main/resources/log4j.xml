@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="iso-8859-1"?>
 <!DOCTYPE log4j:configuration SYSTEM "log4j.dtd" >
-<log4j:configuration debug="false">
+<log4j:configuration debug="true">
     <appender name="default.console" class="org.apache.log4j.ConsoleAppender">
         <param name="target" value="System.out"/>
         <layout class="org.apache.log4j.PatternLayout">

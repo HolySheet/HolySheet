@@ -1,19 +1,41 @@
 package com.uddernetworks.drivestore;
 
+import com.google.api.client.googleapis.media.MediaHttpUploader;
+import com.google.api.client.googleapis.media.MediaHttpUploaderProgressListener;
+import com.google.api.client.http.ByteArrayContent;
+import com.google.api.client.http.FileContent;
+import com.google.api.client.http.InputStreamContent;
+import com.google.api.client.util.ByteArrayStreamingContent;
 import com.google.api.services.docs.v1.Docs;
+import com.google.api.services.docs.v1.model.BatchUpdateDocumentRequest;
 import com.google.api.services.docs.v1.model.Body;
+import com.google.api.services.docs.v1.model.CreateNamedRangeRequest;
 import com.google.api.services.docs.v1.model.Document;
+import com.google.api.services.docs.v1.model.InsertTextRequest;
+import com.google.api.services.docs.v1.model.Location;
+import com.google.api.services.docs.v1.model.Paragraph;
+import com.google.api.services.docs.v1.model.ParagraphElement;
+import com.google.api.services.docs.v1.model.Range;
+import com.google.api.services.docs.v1.model.ReplaceAllTextRequest;
+import com.google.api.services.docs.v1.model.Request;
+import com.google.api.services.docs.v1.model.SectionBreak;
 import com.google.api.services.docs.v1.model.StructuralElement;
+import com.google.api.services.docs.v1.model.TextRun;
+import com.google.api.services.docs.v1.model.TextStyle;
+import com.google.api.services.docs.v1.model.UpdateTextStyleRequest;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.model.File;
 import com.google.api.services.drive.model.FileList;
+import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -36,6 +58,24 @@ public class DocManager {
         this.drive = docStore.getDrive();
     }
 
+    class CustomProgressListener implements MediaHttpUploaderProgressListener {
+        public void progressChanged(MediaHttpUploader uploader) throws IOException {
+            switch (uploader.getUploadState()) {
+                case INITIATION_STARTED:
+                    System.out.println("Initiation has started!");
+                    break;
+                case INITIATION_COMPLETE:
+                    System.out.println("Initiation is complete!");
+                    break;
+                case MEDIA_IN_PROGRESS:
+                    System.out.println(uploader.getProgress());
+                    break;
+                case MEDIA_COMPLETE:
+                    System.out.println("Upload is complete!");
+            }
+        }
+    }
+
     public void init() {
         try {
             LOGGER.info("Finding docstore folder...");
@@ -52,28 +92,69 @@ public class DocManager {
 
             LOGGER.info("docstore id: {}", docstore.getId());
 
-            getCOptional(getDocFiles()).ifPresent(file -> {
-                try {
-                    LOGGER.info("Found {} ({})", file.getName(), file.getId());
+//            getCOptional(getDocFiles()).ifPresent(file -> {
+//                try {
+//                    LOGGER.info("Found {} ({})", file.getName(), file.getId());
+//
+////                    drive.files().get(file.getId()).
+////                    try (var os = new ByteArrayOutputStream()) {
+////                        drive.files().get(file.getId()).executeMediaAndDownloadTo(os);
+////                        LOGGER.info("Data:\n\n");
+////                        System.out.println(new String(os.toByteArray()));
+////                    }
+//
+////                    drive.
+//
+//
+////
+////                    var document = docs.documents().get(file.getId()).execute();
+////
+////                    var body = document.getBody();
+////                    body.getContent().stream().map(StructuralElement::getParagraph).forEach(paragraph -> {
+////                        try {
+////                            if (paragraph == null) return;
+////                            LOGGER.info(paragraph.toPrettyString());
+////                        } catch (IOException e) {
+////                            e.printStackTrace();
+////                        }
+////                    });
+//                } catch (IOException e) {
+//                    throw new UncheckedIOException(e);
+//                }
+//            });
 
-                    var document = docs.documents().get(file.getId()).execute();
+            var content = new ByteArrayContent("text/plain", "".getBytes());
+            var request = drive.files().create(new File().setMimeType(Mime.DOCUMENT.getMime()).setName("Doc " + System.currentTimeMillis()), content);
+            request.getMediaHttpUploader().setProgressListener(new CustomProgressListener());
+            var made = request.execute();
 
-                    var body = document.getBody();
-                    body.getContent().stream().map(StructuralElement::getParagraph).forEach(paragraph -> {
-                        try {
-                            if (paragraph == null) return;
-                            LOGGER.info(paragraph.toPrettyString());
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                    });
-                } catch (IOException e) {
-                    throw new UncheckedIOException(e);
-                }
-            });
+            docs.documents().batchUpdate(made.getId(), new BatchUpdateDocumentRequest().setRequests(
+                    Arrays.asList(
+                            new Request().setInsertText(new InsertTextRequest().setText("1").setLocation(new Location().setIndex(1))),
+                            new Request().setUpdateTextStyle(new UpdateTextStyleRequest().setRange(new Range().setStartIndex(1).setEndIndex(2)).setTextStyle(new TextStyle().setBold(true)).setFields("*")),
+                            new Request().setInsertText(new InsertTextRequest().setText("2").setLocation(new Location().setIndex(2))),
+                            new Request().setUpdateTextStyle(new UpdateTextStyleRequest().setRange(new Range().setStartIndex(2).setEndIndex(3)).setTextStyle(new TextStyle().setItalic(true)).setFields("*")),
+                            new Request().setInsertText(new InsertTextRequest().setText("3").setLocation(new Location().setIndex(3))),
+                            new Request().setUpdateTextStyle(new UpdateTextStyleRequest().setRange(new Range().setStartIndex(3).setEndIndex(4)).setTextStyle(new TextStyle().setUnderline(true)).setFields("*"))
+                    )
+            )).execute();
         } catch (IOException e) {
             LOGGER.error("An error occurred while finding or creating docstore directory", e);
         }
+
+        LOGGER.info("Done!");
+    }
+
+    private File moveDocument(File file, File to) throws IOException {
+        var pp = drive.files().get(file.getId())
+                .setFields("parents")
+                .execute();
+
+        return drive.files().update(file.getId(), null)
+                .setAddParents(to.getId())
+                .setRemoveParents(String.join(",", pp.getParents()))
+                .setFields("id, parents")
+                .execute();
     }
 
     private List<File> getDocFiles() throws IOException {
@@ -134,7 +215,7 @@ public class DocManager {
     private FileList getPagesFiles(String pageToken, int pageSize, Mime[] mimes, String query) throws IOException {
         var builder = drive.files().list()
                 .setPageSize(pageSize)
-                .setFields("nextPageToken, files(id, name, mimeType)");
+                .setFields("nextPageToken, files(id, name, mimeType, parents)");
 
         if (pageToken != null && !pageToken.isBlank()) {
             builder.setPageToken(pageToken);

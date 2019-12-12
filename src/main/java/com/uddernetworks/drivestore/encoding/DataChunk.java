@@ -1,5 +1,8 @@
 package com.uddernetworks.drivestore.encoding;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import static com.uddernetworks.drivestore.encoding.ByteUtil.getBit;
 import static com.uddernetworks.drivestore.encoding.ByteUtil.getBitRange;
 import static com.uddernetworks.drivestore.encoding.ByteUtil.getLongBitRange;
@@ -9,6 +12,8 @@ import static java.lang.Long.toBinaryString;
  * A chunk of 64 bits of data with the ability to be recreated to/from Google Docs' format, as an abstracted layer.
  */
 public class DataChunk {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(DataChunk.class);
 
     private byte bold      = 0b0; // 1
     private byte underline = 0b0; // 1
@@ -41,13 +46,13 @@ public class DataChunk {
         chunk.color = (int) getLongBitRange(data, 16, 24);
         chunk.highlight = (int) getLongBitRange(data, 40, 24);
 
-        System.out.println("bold = " + toBinaryString(chunk.bold));
-        System.out.println("underline = " + toBinaryString(chunk.underline));
-        System.out.println("italics = " + toBinaryString(chunk.italics));
-        System.out.println("font = " + toBinaryString(chunk.font));
-        System.out.println("size = " + toBinaryString(chunk.size));
-        System.out.println("color = " + toBinaryString(chunk.color));
-        System.out.println("highlight = " + toBinaryString(chunk.highlight));
+        LOGGER.info("bold = " + toBinaryString(chunk.bold));
+        LOGGER.info("underline = " + toBinaryString(chunk.underline));
+        LOGGER.info("italics = " + toBinaryString(chunk.italics));
+        LOGGER.info("font = " + toBinaryString(chunk.font));
+        LOGGER.info("size = " + toBinaryString(chunk.size));
+        LOGGER.info("color = " + toBinaryString(chunk.color));
+        LOGGER.info("highlight = " + toBinaryString(chunk.highlight));
 
         return chunk;
     }

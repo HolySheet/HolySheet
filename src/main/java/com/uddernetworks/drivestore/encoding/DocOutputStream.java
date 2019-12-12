@@ -1,17 +1,14 @@
 package com.uddernetworks.drivestore.encoding;
 
-import java.io.BufferedOutputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.FilterOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
 public class DocOutputStream extends FilterOutputStream {
 
+    private byte bits = 0;
     private long bitValue = 0;
-    private long bits = 0;
 
     private List<DataChunk> chunks = new ArrayList<>();
 
@@ -24,10 +21,7 @@ public class DocOutputStream extends FilterOutputStream {
         bitValue |= (b & 255L) << bits; // Slap current 8 bytes (b) to the left of byteValue
         bits += 8; // b is 8 bytes, so add it to iterated
         if (bits >= 64) {
-            var chunk = DataChunk.constructChunk(bitValue);
-            chunks.add(chunk);
-            System.out.println("Chunk " + chunk);
-
+            chunks.add(DataChunk.constructChunk(bitValue));
             bits = 0;
             bitValue = 0;
         }
@@ -43,9 +37,7 @@ public class DocOutputStream extends FilterOutputStream {
     @Override
     public void flush() throws IOException {
         if (bits > 0) {
-            var chunk = DataChunk.constructChunk(bitValue);
-            chunks.add(chunk);
-            System.out.println("Chunk " + chunk);
+            chunks.add(DataChunk.constructChunk(bitValue));
         }
         super.flush();
     }
