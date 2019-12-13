@@ -50,7 +50,9 @@ public class RequestBuilder {
 
         executed = true;
         var request = docs.documents().batchUpdate(documentId, new BatchUpdateDocumentRequest().setRequests(getRequests()));
-        request.getMediaHttpUploader().setProgressListener(new ProgressListener("Style"));
+//        System.out.println("Request " + request);
+//        System.out.println("media " + request.getMediaHttpUploader());
+//        request.getMediaHttpUploader().setProgressListener(new ProgressListener("Style"));
         request.execute();
     }
 }

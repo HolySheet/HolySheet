@@ -6,13 +6,14 @@ The current theorized amount of data stored per Google Docs character is 64 byte
 
 The data storage technique is:
 
-| Bytes | Representation   |
-| ----- | ---------------- |
-| 1     | Bold Toggle      |
-| 1     | Italics Toggle   |
-| 1     | Underline Toggle |
-| 5     | Font (32 fonts)  |
-| 8     | Text Size        |
-| 24    | Text Color       |
-| 24    | Highlight Color  |
+| Bytes | Representation     |
+| ----- | ------------------ |
+| 1     | Bold Toggle        |
+| 1     | Italics Toggle     |
+| 1     | Underline Toggle   |
+| 5     | Font (32 fonts)    |
+| 6     | Character (mapped) |
+| 8     | Text Size          |
+| 24    | Text Color         |
+| 24    | Highlight Color    |
 

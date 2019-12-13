@@ -8,6 +8,9 @@ import com.google.api.services.drive.model.File;
 import com.google.api.services.drive.model.FileList;
 import com.uddernetworks.drivestore.docs.ProgressListener;
 import com.uddernetworks.drivestore.docs.RequestBuilder;
+import com.uddernetworks.drivestore.encoding.DataChunk;
+import com.uddernetworks.drivestore.encoding.DocEncoder;
+import com.uddernetworks.drivestore.encoding.DocOutputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,46 +58,24 @@ public class DocManager {
 
             LOGGER.info("docstore id: {}", docstore.getId());
 
-//            getCOptional(getDocFiles()).ifPresent(file -> {
-//                try {
-//                    LOGGER.info("Found {} ({})", file.getName(), file.getId());
-//
-////                    drive.files().get(file.getId()).
-////                    try (var os = new ByteArrayOutputStream()) {
-////                        drive.files().get(file.getId()).executeMediaAndDownloadTo(os);
-////                        LOGGER.info("Data:\n\n");
-////                        System.out.println(new String(os.toByteArray()));
-////                    }
-//
-////                    drive.
-//
-//
-////
-////                    var document = docs.documents().get(file.getId()).execute();
-////
-////                    var body = document.getBody();
-////                    body.getContent().stream().map(StructuralElement::getParagraph).forEach(paragraph -> {
-////                        try {
-////                            if (paragraph == null) return;
-////                            LOGGER.info(paragraph.toPrettyString());
-////                        } catch (IOException e) {
-////                            e.printStackTrace();
-////                        }
-////                    });
-//                } catch (IOException e) {
-//                    throw new UncheckedIOException(e);
-//                }
-//            });
+//            createDocument("Doc " + System.currentTimeMillis(), requestBuilder -> requestBuilder
+//                    .addStyledText("one ", new TextStyle().setBold(true))
+//                    .addStyledText("two ", new TextStyle().setItalic(true))
+//                    .addStyledText("three", new TextStyle().setUnderline(true)));
 
-            /*
+            var chunkOS = new DocOutputStream();
+            try {
+                chunkOS.write("This is a test of some text lmao maybe this will work, maybe it won't, who really knows. This should be capable of storing any binary values, at a very large capacity due to being able to store an entire long (64 bytes) in a single character.".getBytes());
+                chunkOS.close();
+            } catch (IOException e) {
+                LOGGER.error("An error occurred while encoding", e);
+            }
 
+            var chunks = chunkOS.getChunks();
+            LOGGER.info("Processed {} chunks", chunks.size());
+            LOGGER.info("Uploading document...");
 
-             */
-
-            createDocument("Doc " + System.currentTimeMillis(), requestBuilder -> requestBuilder
-                    .addStyledText("one ", new TextStyle().setBold(true))
-                    .addStyledText("two ", new TextStyle().setItalic(true))
-                    .addStyledText("three", new TextStyle().setUnderline(true)));
+            createDocument("Doc " + System.currentTimeMillis(), requestBuilder -> DocEncoder.encodeChunks(requestBuilder, chunks));
 
         } catch (IOException e) {
             LOGGER.error("An error occurred while finding or creating docstore directory", e);

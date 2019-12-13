@@ -15,22 +15,22 @@ public class DataChunk {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DataChunk.class);
 
-    private byte bold      = 0b0; // 1
-    private byte underline = 0b0; // 1
-    private byte italics   = 0b0; // 1
-    private short font     = 0b00000; // 5
-    private short size     = 0b00000000; // 8
-    private long color     = 0b000000000000000000000000; // 24
-    private long highlight = 0b000000000000000000000000; // 24
+    private byte bold       = 0b0; // 1
+    private byte underline  = 0b0; // 1
+    private byte italics    = 0b0; // 1
+    private short character = 0b00000; // 5
+    private short size      = 0b00000000; // 8
+    private long color      = 0b000000000000000000000000; // 24
+    private long highlight  = 0b000000000000000000000000; // 24
 
     public DataChunk() {
     }
 
-    public DataChunk(byte bold, byte underline, byte italics, short font, short size, long color, long highlight) {
+    public DataChunk(byte bold, byte underline, byte italics, short character, short size, long color, long highlight) {
         this.bold = bold;
         this.underline = underline;
         this.italics = italics;
-        this.font = font;
+        this.character = character;
         this.size = size;
         this.color = color;
         this.highlight = highlight;
@@ -41,19 +41,10 @@ public class DataChunk {
         chunk.bold = getBit(data, 0);
         chunk.underline = getBit(data, 1);
         chunk.italics = getBit(data, 2);
-        chunk.font = getBitRange(data, 3, 5);
+        chunk.character = getBitRange(data, 3, 5);
         chunk.size = (short) getLongBitRange(data, 8, 8);
         chunk.color = (int) getLongBitRange(data, 16, 24);
         chunk.highlight = (int) getLongBitRange(data, 40, 24);
-
-        LOGGER.info("bold = " + toBinaryString(chunk.bold));
-        LOGGER.info("underline = " + toBinaryString(chunk.underline));
-        LOGGER.info("italics = " + toBinaryString(chunk.italics));
-        LOGGER.info("font = " + toBinaryString(chunk.font));
-        LOGGER.info("size = " + toBinaryString(chunk.size));
-        LOGGER.info("color = " + toBinaryString(chunk.color));
-        LOGGER.info("highlight = " + toBinaryString(chunk.highlight));
-
         return chunk;
     }
 
@@ -62,7 +53,7 @@ public class DataChunk {
         output |= bold;
         output |= underline << 0b1;
         output |= italics << 0b10;
-        output |= ((long) font & 0b11111) << 0b11;
+        output |= (character & 0b11111) << 0b11;
         output |= (size & 0b11111111L) << 0b1000L;
         output |= (color & 0b111111111111111111111111L) << 0b10000;
         output |= (highlight & 0b111111111111111111111111L) << 0b101000;
@@ -81,8 +72,8 @@ public class DataChunk {
         return italics;
     }
 
-    public short getFont() {
-        return font;
+    public short getCharacter() {
+        return character;
     }
 
     public short getSize() {
@@ -95,5 +86,18 @@ public class DataChunk {
 
     public long getHighlight() {
         return highlight;
+    }
+
+    @Override
+    public String toString() {
+        return "DataChunk{" +
+                "bold=" + toBinaryString(bold) +
+                ", underline=" + toBinaryString(underline) +
+                ", italics=" + toBinaryString(italics) +
+                ", character=" + toBinaryString(character) +
+                ", size=" + toBinaryString(size) +
+                ", color=" + toBinaryString(color) +
+                ", highlight=" + toBinaryString(highlight) +
+                '}';
     }
 }

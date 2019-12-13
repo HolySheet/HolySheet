@@ -1,10 +1,6 @@
 package com.uddernetworks.drivestore.encoding;
 
-import java.nio.ByteBuffer;
-
 public class ByteUtil {
-
-    private static final ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
 
     public static byte getBit(long number, int offset) {
         return (byte) getLongBit(number, offset);
