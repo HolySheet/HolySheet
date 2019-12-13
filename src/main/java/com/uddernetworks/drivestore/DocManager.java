@@ -2,29 +2,34 @@ package com.uddernetworks.drivestore;
 
 import com.google.api.client.http.ByteArrayContent;
 import com.google.api.services.docs.v1.Docs;
-import com.google.api.services.docs.v1.model.TextStyle;
+import com.google.api.services.docs.v1.model.ParagraphElement;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.model.File;
 import com.google.api.services.drive.model.FileList;
+import com.uddernetworks.drivestore.docs.DownloadProgressListener;
 import com.uddernetworks.drivestore.docs.ProgressListener;
 import com.uddernetworks.drivestore.docs.RequestBuilder;
+import com.uddernetworks.drivestore.encoding.ByteUtil;
 import com.uddernetworks.drivestore.encoding.DataChunk;
-import com.uddernetworks.drivestore.encoding.DocEncoder;
+import com.uddernetworks.drivestore.encoding.DocCoder;
 import com.uddernetworks.drivestore.encoding.DocOutputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static com.uddernetworks.drivestore.COptional.getCOptional;
+import static java.lang.Long.toBinaryString;
 
 public class DocManager {
 
@@ -57,26 +62,6 @@ public class DocManager {
             });
 
             LOGGER.info("docstore id: {}", docstore.getId());
-
-//            createDocument("Doc " + System.currentTimeMillis(), requestBuilder -> requestBuilder
-//                    .addStyledText("one ", new TextStyle().setBold(true))
-//                    .addStyledText("two ", new TextStyle().setItalic(true))
-//                    .addStyledText("three", new TextStyle().setUnderline(true)));
-
-            var chunkOS = new DocOutputStream();
-            try {
-                chunkOS.write("This is a test of some text lmao maybe this will work, maybe it won't, who really knows. This should be capable of storing any binary values, at a very large capacity due to being able to store an entire long (64 bytes) in a single character.".getBytes());
-                chunkOS.close();
-            } catch (IOException e) {
-                LOGGER.error("An error occurred while encoding", e);
-            }
-
-            var chunks = chunkOS.getChunks();
-            LOGGER.info("Processed {} chunks", chunks.size());
-            LOGGER.info("Uploading document...");
-
-            createDocument("Doc " + System.currentTimeMillis(), requestBuilder -> DocEncoder.encodeChunks(requestBuilder, chunks));
-
         } catch (IOException e) {
             LOGGER.error("An error occurred while finding or creating docstore directory", e);
         }
@@ -84,7 +69,69 @@ public class DocManager {
         LOGGER.info("Done!");
     }
 
-    public void createDocument(String title, Consumer<RequestBuilder> requestBuilderConsumer) throws IOException {
+    /**
+     * Uploads the given binary data to google docs. This should be converted into a file upload (or InputStream) later
+     * on for dealing with large uploads.
+     *
+     * @param bytes The bytes to upload
+     * @return The ID of the upload
+     */
+    public Optional<String> uploadData(byte[] bytes) {
+        try (var chunkOS = new DocOutputStream()) {
+            chunkOS.write(bytes);
+            chunkOS.close();
+            var chunks = chunkOS.getChunks();
+
+            LOGGER.info("Processed {} chunks", chunks.size());
+            LOGGER.info("Uploading document...");
+
+            return Optional.of(createDocument("Doc " + System.currentTimeMillis(), requestBuilder -> DocCoder.encodeChunks(requestBuilder, chunks)).getId());
+        } catch (IOException e) {
+            LOGGER.error("An error occurred while encoding/uploading", e);
+            return Optional.empty();
+        }
+    }
+
+    public Optional<byte[]> retrieveData(String documentId) {
+        try {
+            var request = docs.documents().get(documentId);
+//            request.getMediaHttpDownloader().setProgressListener(new DownloadProgressListener("Retrieve"));
+            var fetched = request.execute();
+            var content = fetched.getBody().getContent();
+
+            var out = new ByteArrayOutputStream();
+            content.forEach(elem -> {
+                if (elem == null || elem.getParagraph() == null) return;
+                var pelem = elem.getParagraph().getElements();
+                pelem.stream()
+                        .map(ParagraphElement::getTextRun)
+                        .filter(Objects::nonNull)
+                        .forEach(run -> {
+                            // TODO: Direct TextRun > long?
+                            DocCoder.decodeChunk(run)
+                                    .map(DataChunk::deconstructChunk)
+                                    .map(ByteUtil::longToBytes)
+                                    .ifPresent(out::writeBytes);
+                        });
+            });
+
+            return Optional.of(out.toByteArray());
+        } catch (IOException e) {
+            LOGGER.error("An error occurred while decoding/retrieving", e);
+            return Optional.empty();
+        }
+    }
+
+    public List<File> listUploads() {
+        try {
+            return getDocFiles();
+        } catch (IOException e) {
+            LOGGER.error("An error occurred while listing uploads", e);
+            return Collections.emptyList();
+        }
+    }
+
+    public File createDocument(String title, Consumer<RequestBuilder> requestBuilderConsumer) throws IOException {
         var content = new ByteArrayContent("text/plain", "".getBytes());
         var request = drive.files().create(new File()
                 .setMimeType(Mime.DOCUMENT.getMime())
@@ -96,6 +143,7 @@ public class DocManager {
         var requestBuilder = new RequestBuilder(docs);
         requestBuilderConsumer.accept(requestBuilder);
         requestBuilder.execute(created.getId());
+        return created;
     }
 
     private List<File> getDocFiles() throws IOException {

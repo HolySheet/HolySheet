@@ -11,8 +11,7 @@ The data storage technique is:
 | 1     | Bold Toggle        |
 | 1     | Italics Toggle     |
 | 1     | Underline Toggle   |
-| 5     | Font (32 fonts)    |
-| 6     | Character (mapped) |
+| 5     | Character (Mapped) |
 | 8     | Text Size          |
 | 24    | Text Color         |
 | 24    | Highlight Color    |

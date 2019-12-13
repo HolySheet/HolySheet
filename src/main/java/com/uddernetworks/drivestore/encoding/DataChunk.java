@@ -3,6 +3,8 @@ package com.uddernetworks.drivestore.encoding;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Objects;
+
 import static com.uddernetworks.drivestore.encoding.ByteUtil.getBit;
 import static com.uddernetworks.drivestore.encoding.ByteUtil.getBitRange;
 import static com.uddernetworks.drivestore.encoding.ByteUtil.getLongBitRange;
@@ -99,5 +101,24 @@ public class DataChunk {
                 ", color=" + toBinaryString(color) +
                 ", highlight=" + toBinaryString(highlight) +
                 '}';
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        DataChunk dataChunk = (DataChunk) o;
+        return bold == dataChunk.bold &&
+                underline == dataChunk.underline &&
+                italics == dataChunk.italics &&
+                character == dataChunk.character &&
+                size == dataChunk.size &&
+                color == dataChunk.color &&
+                highlight == dataChunk.highlight;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(bold, underline, italics, character, size, color, highlight);
     }
 }

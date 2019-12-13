@@ -1,5 +1,7 @@
 package com.uddernetworks.drivestore.encoding;
 
+import java.nio.ByteBuffer;
+
 public class ByteUtil {
 
     public static byte getBit(long number, int offset) {
@@ -20,25 +22,11 @@ public class ByteUtil {
         return rightShifted & mask;
     }
 
-    /**
-     * Following two methods:
-     * https://stackoverflow.com/a/29132118/3929546
-     */
     public static byte[] longToBytes(long l) {
-        var result = new byte[8];
-        for (int i = 0; i <= 7; i++) {
-            result[i] = (byte)(l & 0xFF);
-            l >>= 8;
-        }
-        return result;
+        return ByteBuffer.allocate(Long.BYTES).putLong(l).array();
     }
 
     public static long bytesToLong(byte[] bytes) {
-        long result = 0;
-        for (int i = 0; i < 8; i++) {
-            result <<= 8;
-            result |= (bytes[i] & 0xFF);
-        }
-        return result;
+        return ByteBuffer.wrap(bytes).getLong();
     }
 }
