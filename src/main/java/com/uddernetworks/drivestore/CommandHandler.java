@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -102,9 +103,9 @@ public class CommandHandler {
                 init.run();
 
                 try {
-                    var bytes = Files.readAllBytes(file.toPath());
-                    docStore.getDocManager().uploadData(FilenameUtils.getName(file.getAbsolutePath()), bytes).ifPresentOrElse(id -> {
-                        LOGGER.info("Uploaded with ID of: {}", GREEN + id + RESET);
+                    var name = FilenameUtils.getName(file.getAbsolutePath());
+                    docStore.getDocManager().uploadData(name, new FileInputStream(file)).ifPresentOrElse(id -> {
+                        LOGGER.info("Uploaded {} with ID of: {}", name, GREEN + id + RESET);
                     }, () -> {
                         LOGGER.error("Couldn't upload file");
                     });

@@ -16,12 +16,15 @@ import com.uddernetworks.drivestore.encoding.DataChunk;
 import com.uddernetworks.drivestore.encoding.DocCoder;
 import com.uddernetworks.drivestore.encoding.DocOutputStream;
 import com.uddernetworks.drivestore.utils.Suppressed;
+import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
@@ -85,15 +88,30 @@ public class DocManager {
      * @return The ID of the upload
      */
     public Optional<String> uploadData(String name, byte[] bytes) {
+        return uploadData(name, new ByteArrayInputStream(bytes));
+    }
+
+    /**
+     * Uploads the given binary data to google docs. This should be converted into a file upload (or InputStream) later
+     * on for dealing with large uploads.
+     *
+     * @param name        The name of the document
+     * @param inputStream The InputStream of data to upload
+     * @return The ID of the upload
+     */
+    public Optional<String> uploadData(String name, InputStream inputStream) {
+        long start = System.currentTimeMillis();
         try (var chunkOS = new DocOutputStream()) {
-            chunkOS.write(bytes);
+            IOUtils.copy(inputStream, chunkOS);
             chunkOS.close();
             var chunks = chunkOS.getChunks();
 
             LOGGER.info("Processed {} chunks", chunks.size());
             LOGGER.info("Uploading document...");
 
-            return Optional.of(createDocument(name, requestBuilder -> DocCoder.encodeChunks(requestBuilder, chunks)).getId());
+            var optional = Optional.of(createDocument(name, requestBuilder -> DocCoder.encodeChunks(requestBuilder, chunks)).getId());
+            LOGGER.info("Uploaded in {}ms", System.currentTimeMillis() - start);
+            return optional;
         } catch (IOException e) {
             LOGGER.error("An error occurred while encoding/uploading", e);
             return Optional.empty();
@@ -144,24 +162,6 @@ public class DocManager {
         } catch (IOException e) {
             LOGGER.error("An error occurred while decoding/retrieving", e);
             return Optional.empty();
-        }
-    }
-
-    static class RetrievedData<T extends OutputStream> {
-        private final Document document;
-        private final T out;
-
-        RetrievedData(Document document, T out) {
-            this.document = document;
-            this.out = out;
-        }
-
-        public Document getDocument() {
-            return document;
-        }
-
-        public T getOut() {
-            return out;
         }
     }
 
@@ -277,5 +277,23 @@ public class DocManager {
 
         var q = base.substring(0, base.length() - 4);
         return Optional.of(q);
+    }
+
+    static class RetrievedData<T extends OutputStream> {
+        private final Document document;
+        private final T out;
+
+        RetrievedData(Document document, T out) {
+            this.document = document;
+            this.out = out;
+        }
+
+        public Document getDocument() {
+            return document;
+        }
+
+        public T getOut() {
+            return out;
+        }
     }
 }

@@ -16,6 +16,10 @@ public class AddStyleRequest implements TextRequest {
 
     @Override
     public Request getRequest() {
-        return new Request().setUpdateTextStyle(new UpdateTextStyleRequest().setRange(textRequest.getRange()).setTextStyle(style).setFields("*"));
+        return new Request().setUpdateTextStyle(new UpdateTextStyleRequest()
+                .setRange(textRequest.getRange())
+                .setTextStyle(style)
+                // https://developers.google.com/docs/api/reference/rest/v1/documents#textstyle
+                .setFields("bold,italic,underline,backgroundColor,foregroundColor,fontSize"));
     }
 }

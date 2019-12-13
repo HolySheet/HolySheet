@@ -9,11 +9,16 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 public class RequestBuilder {
+
+//    public static final int REQUESTS_PER_BATCH = 0b11111111111111; // 2^14
+    public static final int REQUESTS_PER_BATCH = 0b1111111111111; // 2^13
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RequestBuilder.class);
 
@@ -54,10 +59,34 @@ public class RequestBuilder {
         }
 
         executed = true;
-        var request = docs.documents().batchUpdate(documentId, new BatchUpdateDocumentRequest().setRequests(getRequests()));
-//        System.out.println("Request " + request);
-//        System.out.println("media " + request.getMediaHttpUploader());
-//        request.getMediaHttpUploader().setProgressListener(new ProgressListener("Style"));
-        request.execute();
+
+        var index = new AtomicInteger();
+        var temp = new AtomicInteger(-1);
+        var grouped = requests.stream().map(TextRequest::getRequest).collect(Collectors.groupingBy(x -> {
+            if (temp.incrementAndGet() < REQUESTS_PER_BATCH) {
+                return index.get();
+            }
+
+            temp.set(0);
+            return index.incrementAndGet();
+        }));
+
+        LOGGER.info("Batch groups: {}", grouped.size());
+
+        double total = grouped.size();
+
+        grouped.forEach((i, group) -> {
+            if (i < 23) return;
+            try {
+                LOGGER.info("{}%", Math.round((i / total) * 100));
+                LOGGER.info("Requesting group {}", i);
+                docs.documents().batchUpdate(documentId, new BatchUpdateDocumentRequest().setRequests(grouped.get(i))).execute();
+                Thread.sleep(1000);
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        });
     }
 }

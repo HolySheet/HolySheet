@@ -16,6 +16,6 @@ The following is a breakdown of how each Google Drive character is stored:
 | 24    | Text Color         |
 | 24    | Highlight Color    |
 
-And an image for graphical reference:
+And an image for graphical reference (I was bored):
 
-![Bit Breakdown](bit_breakdown.png)
+<img alt="Bit Breakdown" src="bit_breakdown.png" width="480px">

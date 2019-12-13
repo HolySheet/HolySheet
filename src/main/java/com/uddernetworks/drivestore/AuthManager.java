@@ -6,6 +6,8 @@ import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver;
 import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow;
 import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
+import com.google.api.client.http.HttpRequest;
+import com.google.api.client.http.HttpRequestInitializer;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
@@ -39,7 +41,7 @@ public class AuthManager {
         final NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
         var credentials = getCredentials(HTTP_TRANSPORT);
 
-        docs = new Docs.Builder(HTTP_TRANSPORT, JSON_FACTORY, credentials)
+        docs = new Docs.Builder(HTTP_TRANSPORT, JSON_FACTORY, setHttpTimeout(credentials))
                 .setApplicationName(APPLICATION_NAME)
                 .build();
 
@@ -62,6 +64,14 @@ public class AuthManager {
                 .build();
         var receier = new LocalServerReceiver.Builder().setPort(8888).build();
         return new AuthorizationCodeInstalledApp(flow, receier).authorize("user");
+    }
+
+    private HttpRequestInitializer setHttpTimeout(final HttpRequestInitializer requestInitializer) {
+        return httpRequest -> {
+            requestInitializer.initialize(httpRequest);
+            httpRequest.setConnectTimeout(5 * 60000);  // 5 minutes connect timeout
+            httpRequest.setReadTimeout(6 * 60000);  // 5 minutes read timeout
+        };
     }
 
     public Docs getDocs() {
