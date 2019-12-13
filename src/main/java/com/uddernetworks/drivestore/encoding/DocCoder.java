@@ -47,10 +47,9 @@ public class DocCoder {
     public static Optional<DataChunk> decodeChunk(TextRun textRun) {
         var style = textRun.getTextStyle();
         if (style == null) {
-            LOGGER.info("STYLE NULL!");
             return Optional.of(new DataChunk((byte) 0, (byte) 0, (byte) 0, (short) REV_TABLE[textRun.getContent().charAt(0)], (short) 0, 0, 0));
         }
-        LOGGER.info("Style fine! ({}) {}",textRun.getContent(), style);
+
         return Optional.of(new DataChunk(
                 boolToByte(style.getBold()),
                 boolToByte(style.getUnderline()),
@@ -96,7 +95,6 @@ public class DocCoder {
         long b = (long) (getSafe(rgb.getBlue()) * 255D);
         r |= g << 8;
         r |= b << 16;
-        System.out.println("Color: " + toBinaryString(r));
         return r;
     }
 

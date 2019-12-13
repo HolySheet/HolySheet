@@ -33,7 +33,6 @@ public class RequestBuilder {
     public RequestBuilder addStyledText(String text, TextStyle style) {
         var insertText = new AddTextRequest(text, textIndex);
         textIndex = insertText.getEndIndex();
-        System.out.println("textIndex = " + textIndex);
         requests.add(insertText);
         requests.add(new AddStyleRequest(insertText, style));
         return this;
