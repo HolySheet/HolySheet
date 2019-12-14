@@ -12,10 +12,10 @@ import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.client.util.store.FileDataStoreFactory;
-import com.google.api.services.docs.v1.Docs;
-import com.google.api.services.docs.v1.DocsScopes;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.DriveScopes;
+import com.google.api.services.sheets.v4.Sheets;
+import com.google.api.services.sheets.v4.SheetsScopes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,21 +31,26 @@ public class AuthManager {
     private static final String APPLICATION_NAME = "DocStore";
     private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
     private static final String TOKENS_DIRECTORY_PATH = "tokens";
-    private static final List<String> SCOPES = List.of(DocsScopes.DOCUMENTS, DriveScopes.DRIVE);
+    private static final List<String> SCOPES = List.of(DriveScopes.DRIVE, SheetsScopes.SPREADSHEETS);
     private static final String CREDENTIALS_FILE_PATH = "/credentials.json";
 
-    private Docs docs;
+//    private Docs docs;
     private Drive drive;
+    private Sheets sheets;
 
     public void initialize() throws GeneralSecurityException, IOException {
         final NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
         var credentials = getCredentials(HTTP_TRANSPORT);
 
-        docs = new Docs.Builder(HTTP_TRANSPORT, JSON_FACTORY, setHttpTimeout(credentials))
+//        docs = new Docs.Builder(HTTP_TRANSPORT, JSON_FACTORY, setHttpTimeout(credentials))
+//                .setApplicationName(APPLICATION_NAME)
+//                .build();
+
+        drive = new Drive.Builder(HTTP_TRANSPORT, JSON_FACTORY, credentials)
                 .setApplicationName(APPLICATION_NAME)
                 .build();
 
-        drive = new Drive.Builder(HTTP_TRANSPORT, JSON_FACTORY, credentials)
+        sheets = new Sheets.Builder(HTTP_TRANSPORT, JSON_FACTORY, credentials)
                 .setApplicationName(APPLICATION_NAME)
                 .build();
     }
@@ -74,8 +79,8 @@ public class AuthManager {
         };
     }
 
-    public Docs getDocs() {
-        return docs;
+    public Sheets getSheets() {
+        return sheets;
     }
 
     public Drive getDrive() {

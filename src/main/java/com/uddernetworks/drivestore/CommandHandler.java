@@ -8,16 +8,20 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.io.FilenameUtils;
+import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -103,12 +107,15 @@ public class CommandHandler {
                 init.run();
 
                 try {
+                    long start = System.currentTimeMillis();
                     var name = FilenameUtils.getName(file.getAbsolutePath());
-                    docStore.getDocManager().uploadData(name, new FileInputStream(file)).ifPresentOrElse(id -> {
-                        LOGGER.info("Uploaded {} with ID of: {}", name, GREEN + id + RESET);
-                    }, () -> {
-                        LOGGER.error("Couldn't upload file");
-                    });
+//                    docStore.getDocManager().uploadData(name, new FileInputStream(file)).ifPresentOrElse(id -> {
+//                        LOGGER.info("Uploaded {} with ID of: {}", name, GREEN + id + RESET);
+//                    }, () -> {
+//                        LOGGER.error("Couldn't upload file");
+//                    });
+                    var ups = docStore.getDocManager().uploadSheet(name, new FileInputStream(file).readAllBytes());
+                    LOGGER.info("Uploaded {} in {}ms", ups.getId(), System.currentTimeMillis() - start);
                 } catch (IOException e) {
                     LOGGER.error("Error reading and uploading file", e);
                 }
@@ -122,19 +129,26 @@ public class CommandHandler {
                     idName = docManager.getIdOfName(idName).orElse(idName);
                 }
 
-                docManager.retrieveData(idName, doc -> {
-                    var name = doc.getTitle().replace(". ", ".");
-                    LOGGER.info("Writing to {}", name);
-                    return new FileOutputStream(name);
-                }).ifPresentOrElse(retrieved -> {
-                    LOGGER.info("Completed download");
-                }, () -> {
-                    LOGGER.error("Couldn't download file");
-                });
+//                docManager.download(idName, new FileOutputStream("fuck.png"));
+//                docManager.download(idName, os);
+                long start = System.currentTimeMillis();
+                var sheet = docManager.download(idName);
+                Files.write(Paths.get(sheet.getFile().getName().replace(". ", ".")), sheet.getBytes());
+                LOGGER.info("Downloaded in {}ms", System.currentTimeMillis() - start);
+
+//                docManager.retrieveData(idName, doc -> {
+//                    var name = doc.getTitle().replace(". ", ".");
+//                    LOGGER.info("Writing to {}", name);
+//                    return new FileOutputStream(name);
+//                }).ifPresentOrElse(retrieved -> {
+//                    LOGGER.info("Completed download");
+//                }, () -> {
+//                    LOGGER.error("Couldn't download file");
+//                });
             } else {
                 formatter.printHelp("DocStore", options);
             }
-        } catch (ParseException e) {
+        } catch (ParseException | IOException e) {
             System.err.println(e.getMessage());
             formatter.printHelp("DocStore", options);
         }

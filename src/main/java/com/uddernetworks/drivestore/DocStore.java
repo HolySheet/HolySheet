@@ -1,7 +1,7 @@
 package com.uddernetworks.drivestore;
 
-import com.google.api.services.docs.v1.Docs;
 import com.google.api.services.drive.Drive;
+import com.google.api.services.sheets.v4.Sheets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -13,8 +13,8 @@ public class DocStore {
 
     private AuthManager authManager;
     private DocManager docManager;
-    private Docs docs;
     private Drive drive;
+    private Sheets sheets;
 
     public static void main(String[] args) throws GeneralSecurityException, IOException {
         new DocStore().start(args);
@@ -28,11 +28,14 @@ public class DocStore {
 
                 authManager = new AuthManager();
                 authManager.initialize();
-                docs = authManager.getDocs();
+//                docs = authManager.getDocs();
                 drive = authManager.getDrive();
+                sheets = authManager.getSheets();
 
                 docManager = new DocManager(this);
                 docManager.init();
+
+//                new SheetManager(sheets).init();
             } catch (GeneralSecurityException | IOException e) {
                 LOGGER.error("Error initializing", e);
             }
@@ -75,11 +78,11 @@ public class DocStore {
         return docManager;
     }
 
-    public Docs getDocs() {
-        return docs;
-    }
-
     public Drive getDrive() {
         return drive;
+    }
+
+    public Sheets getSheets() {
+        return sheets;
     }
 }

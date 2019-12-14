@@ -1,43 +1,37 @@
 package com.uddernetworks.drivestore;
 
 import com.google.api.client.http.ByteArrayContent;
-import com.google.api.services.docs.v1.Docs;
-import com.google.api.services.docs.v1.model.Document;
-import com.google.api.services.docs.v1.model.Paragraph;
-import com.google.api.services.docs.v1.model.ParagraphElement;
-import com.google.api.services.docs.v1.model.StructuralElement;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.model.File;
 import com.google.api.services.drive.model.FileList;
+import com.google.api.services.sheets.v4.Sheets;
+import com.google.api.services.sheets.v4.model.Sheet;
 import com.uddernetworks.drivestore.docs.ProgressListener;
-import com.uddernetworks.drivestore.docs.RequestBuilder;
-import com.uddernetworks.drivestore.encoding.ByteUtil;
-import com.uddernetworks.drivestore.encoding.DataChunk;
-import com.uddernetworks.drivestore.encoding.DocCoder;
-import com.uddernetworks.drivestore.encoding.DocOutputStream;
-import com.uddernetworks.drivestore.utils.Suppressed;
+import com.uddernetworks.drivestore.encoding.DecodingOutputStream;
+import com.uddernetworks.drivestore.encoding.EncodingOutputStream;
+import de.bwaldvogel.base91.Base91;
+import de.bwaldvogel.base91.Base91OutputStream;
 import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.Supplier;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static com.uddernetworks.drivestore.COptional.getCOptional;
 
@@ -46,15 +40,15 @@ public class DocManager {
     private static final Logger LOGGER = LoggerFactory.getLogger(DocManager.class);
 
     private final DocStore docStore;
-    private final Docs docs;
     private final Drive drive;
+    private final Sheets sheets;
 
     private File docstore;
 
     public DocManager(DocStore docStore) {
         this.docStore = docStore;
-        this.docs = docStore.getDocs();
         this.drive = docStore.getDrive();
+        this.sheets = docStore.getSheets();
     }
 
     public void init() {
@@ -79,43 +73,32 @@ public class DocManager {
         LOGGER.info("Done!");
     }
 
-    /**
-     * Uploads the given binary data to google docs. This should be converted into a file upload (or InputStream) later
-     * on for dealing with large uploads.
-     *
-     * @param name  The name of the document
-     * @param bytes The bytes to upload
-     * @return The ID of the upload
-     */
-    public Optional<String> uploadData(String name, byte[] bytes) {
-        return uploadData(name, new ByteArrayInputStream(bytes));
+    public File uploadSheet(String title, byte[] data) throws IOException {
+        // Base91 stream writes to Encoding, which then writes to ByteArray
+        var byteArrayOutputStream = new ByteArrayOutputStream();
+        var encodingOutputStream = new EncodingOutputStream(byteArrayOutputStream);
+        var base91OutputStream = new Base91OutputStream(encodingOutputStream);
+        base91OutputStream.write(data);
+        base91OutputStream.flush();
+
+        var encoded = byteArrayOutputStream.toByteArray();
+
+        var content = new ByteArrayContent("text/tab-separated-values", encoded);
+        var request = drive.files().create(new File()
+                .setMimeType(Mime.SHEET.getMime())
+                .setName(title.replace(".", ". "))
+                .setParents(Collections.singletonList(docstore.getId())), content);
+        request.getMediaHttpUploader().setProgressListener(new ProgressListener("Upload"));
+        return request.execute();
     }
 
-    /**
-     * Uploads the given binary data to google docs. This should be converted into a file upload (or InputStream) later
-     * on for dealing with large uploads.
-     *
-     * @param name        The name of the document
-     * @param inputStream The InputStream of data to upload
-     * @return The ID of the upload
-     */
-    public Optional<String> uploadData(String name, InputStream inputStream) {
-        long start = System.currentTimeMillis();
-        try (var chunkOS = new DocOutputStream()) {
-            IOUtils.copy(inputStream, chunkOS);
-            chunkOS.close();
-            var chunks = chunkOS.getChunks();
+    public DownloadedSheet download(String id) throws IOException {
+        var byteOut = new ByteArrayOutputStream();
+        var encodingOut = new DecodingOutputStream(byteOut);
+        var file = drive.files().get(id).execute();
+        drive.files().export(id, "text/tab-separated-values").executeMediaAndDownloadTo(encodingOut);
 
-            LOGGER.info("Processed {} chunks", chunks.size());
-            LOGGER.info("Uploading document...");
-
-            var optional = Optional.of(createDocument(name, requestBuilder -> DocCoder.encodeChunks(requestBuilder, chunks)).getId());
-            LOGGER.info("Uploaded in {}ms", System.currentTimeMillis() - start);
-            return optional;
-        } catch (IOException e) {
-            LOGGER.error("An error occurred while encoding/uploading", e);
-            return Optional.empty();
-        }
+        return new DownloadedSheet(file, Base91.decode(byteOut.toByteArray())); // TODO: Integrate this with the EncodingOutputStream
     }
 
     public Optional<String> getIdOfName(String name) {
@@ -126,71 +109,17 @@ public class DocManager {
         }
     }
 
-    public Optional<RetrievedData<ByteArrayOutputStream>> retrieveData(String documentId) {
-        return retrieveData(documentId, $ -> new ByteArrayOutputStream());
-    }
-
-    public <T extends OutputStream> Optional<RetrievedData<T>> retrieveData(String documentId, Suppressed.SuppressedFunction<Document, T> outFunction) {
-        try {
-            LOGGER.info("Fetching file...");
-            long start = System.currentTimeMillis();
-            var fetched = docs.documents().get(documentId).execute();
-            LOGGER.info("Fetched in {}ms", System.currentTimeMillis() - start);
-            var content = fetched.getBody().getContent();
-
-            var out = outFunction.apply(fetched);
-            content.stream()
-                    .filter(elem -> elem != null && elem.getParagraph() != null)
-                    .map(StructuralElement::getParagraph)
-                    .map(Paragraph::getElements)
-                    .map(List::stream)
-                    .forEach(stream -> stream
-                            .map(ParagraphElement::getTextRun)
-                            .filter(Objects::nonNull)
-                            .forEach(run -> DocCoder.decodeChunk(run) // TODO: Direct TextRun > long?
-                                    .map(DataChunk::deconstructChunk)
-                                    .map(ByteUtil::longToBytes)
-                                    .ifPresent(b -> {
-                                        try {
-                                            out.write(b);
-                                        } catch (IOException e) {
-                                            throw new UncheckedIOException(e);
-                                        }
-                                    })));
-
-            return Optional.of(new RetrievedData<>(fetched, out));
-        } catch (IOException e) {
-            LOGGER.error("An error occurred while decoding/retrieving", e);
-            return Optional.empty();
-        }
-    }
-
     public List<File> listUploads() {
         try {
-            return getDocFiles();
+            return getSheets();
         } catch (IOException e) {
             LOGGER.error("An error occurred while listing uploads", e);
             return Collections.emptyList();
         }
     }
 
-    public File createDocument(String title, Consumer<RequestBuilder> requestBuilderConsumer) throws IOException {
-        var content = new ByteArrayContent("text/plain", "".getBytes());
-        var request = drive.files().create(new File()
-                .setMimeType(Mime.DOCUMENT.getMime())
-                .setName(title.replace(".", ". ")) // TODO: Remove this period replacing, Google Drive just doesn't like files being named this initially
-                .setParents(Collections.singletonList(docstore.getId())), content);
-        request.getMediaHttpUploader().setProgressListener(new ProgressListener("Upload"));
-        var created = request.execute();
-
-        var requestBuilder = new RequestBuilder(docs);
-        requestBuilderConsumer.accept(requestBuilder);
-        requestBuilder.execute(created.getId());
-        return created;
-    }
-
-    private List<File> getDocFiles() throws IOException {
-        return getFiles(-1, "parents in '" + docstore.getId() + "'", Mime.DOCUMENT);
+    private List<File> getSheets() throws IOException {
+        return getFiles(-1, "parents in '" + docstore.getId() + "'", Mime.SHEET);
     }
 
     /**
@@ -277,23 +206,5 @@ public class DocManager {
 
         var q = base.substring(0, base.length() - 4);
         return Optional.of(q);
-    }
-
-    static class RetrievedData<T extends OutputStream> {
-        private final Document document;
-        private final T out;
-
-        RetrievedData(Document document, T out) {
-            this.document = document;
-            this.out = out;
-        }
-
-        public Document getDocument() {
-            return document;
-        }
-
-        public T getOut() {
-            return out;
-        }
     }
 }
