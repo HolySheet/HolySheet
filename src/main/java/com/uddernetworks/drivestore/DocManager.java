@@ -5,35 +5,26 @@ import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.model.File;
 import com.google.api.services.drive.model.FileList;
 import com.google.api.services.sheets.v4.Sheets;
-import com.google.api.services.sheets.v4.model.Sheet;
 import com.uddernetworks.drivestore.docs.ProgressListener;
 import com.uddernetworks.drivestore.encoding.DecodingOutputStream;
 import com.uddernetworks.drivestore.encoding.EncodingOutputStream;
-import de.bwaldvogel.base91.Base91;
-import de.bwaldvogel.base91.Base91OutputStream;
 import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
-import java.nio.ByteBuffer;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import static com.uddernetworks.drivestore.COptional.getCOptional;
+import static com.uddernetworks.drivestore.encoding.ByteUtil.humanReadableByteCountSI;
 
 public class DocManager {
 
@@ -74,14 +65,9 @@ public class DocManager {
     }
 
     public File uploadSheet(String title, byte[] data) throws IOException {
-        // Base91 stream writes to Encoding, which then writes to ByteArray
-        var byteArrayOutputStream = new ByteArrayOutputStream();
-        var encodingOutputStream = new EncodingOutputStream(byteArrayOutputStream);
-        var base91OutputStream = new Base91OutputStream(encodingOutputStream);
-        base91OutputStream.write(data);
-        base91OutputStream.flush();
+        var encoded = EncodingOutputStream.encode(data);
 
-        var encoded = byteArrayOutputStream.toByteArray();
+        LOGGER.info("Encoded from {} - {} ({}% overhead)", humanReadableByteCountSI(data.length), humanReadableByteCountSI(encoded.length), round(data.length / (double) encoded.length * 100D, 2));
 
         var content = new ByteArrayContent("text/tab-separated-values", encoded);
         var request = drive.files().create(new File()
@@ -92,13 +78,23 @@ public class DocManager {
         return request.execute();
     }
 
-    public DownloadedSheet download(String id) throws IOException {
-        var byteOut = new ByteArrayOutputStream();
-        var encodingOut = new DecodingOutputStream(byteOut);
-        var file = drive.files().get(id).execute();
-        drive.files().export(id, "text/tab-separated-values").executeMediaAndDownloadTo(encodingOut);
+    private String round(double number, int places) {
+        double scale = Math.pow(10, places);
+        return String.valueOf(Math.round(number * scale) / scale);
+    }
 
-        return new DownloadedSheet(file, Base91.decode(byteOut.toByteArray())); // TODO: Integrate this with the EncodingOutputStream
+    public ByteArrayOutputStream download(String id) throws IOException {
+        return download(id, new ByteArrayOutputStream());
+    }
+
+    public <T extends OutputStream> T download(String id, T out) throws IOException {
+        var encodingOut = new DecodingOutputStream<>(out);
+        IOUtils.copy(drive.files().export(id, "text/tab-separated-values").executeMediaAsInputStream(), encodingOut);
+        return encodingOut.getOut();
+    }
+
+    public File getFile(String id) throws IOException {
+        return drive.files().get(id).execute();
     }
 
     public Optional<String> getIdOfName(String name) {

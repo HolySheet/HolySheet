@@ -8,26 +8,18 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.io.FilenameUtils;
-import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.regex.Pattern;
-
-import static com.uddernetworks.drivestore.Color.GREEN;
-import static com.uddernetworks.drivestore.Color.RESET;
 
 public class CommandHandler {
 
@@ -129,22 +121,19 @@ public class CommandHandler {
                     idName = docManager.getIdOfName(idName).orElse(idName);
                 }
 
-//                docManager.download(idName, new FileOutputStream("fuck.png"));
-//                docManager.download(idName, os);
                 long start = System.currentTimeMillis();
-                var sheet = docManager.download(idName);
-                Files.write(Paths.get(sheet.getFile().getName().replace(". ", ".")), sheet.getBytes());
-                LOGGER.info("Downloaded in {}ms", System.currentTimeMillis() - start);
+                var sheet = docManager.getFile(idName);
 
-//                docManager.retrieveData(idName, doc -> {
-//                    var name = doc.getTitle().replace(". ", ".");
-//                    LOGGER.info("Writing to {}", name);
-//                    return new FileOutputStream(name);
-//                }).ifPresentOrElse(retrieved -> {
-//                    LOGGER.info("Completed download");
-//                }, () -> {
-//                    LOGGER.error("Couldn't download file");
-//                });
+                if (sheet == null) {
+                    LOGGER.info("Couldn't find file with id/name of {}", idName);
+                    return;
+                }
+
+                try (var fileStream = new FileOutputStream(sheet.getName().replace(". ", "."))) {
+                    docManager.download(idName, fileStream);
+                }
+
+                LOGGER.info("Downloaded in {}ms", System.currentTimeMillis() - start);
             } else {
                 formatter.printHelp("DocStore", options);
             }
@@ -152,18 +141,6 @@ public class CommandHandler {
             System.err.println(e.getMessage());
             formatter.printHelp("DocStore", options);
         }
-    }
-
-    public static String humanReadableByteCountSI(long bytes) {
-        String s = bytes < 0 ? "-" : "";
-        long b = bytes == Long.MIN_VALUE ? Long.MAX_VALUE : Math.abs(bytes);
-        return b < 1000L ? bytes + " B"
-                : b < 999_950L ? String.format("%s%.1f kB", s, b / 1e3)
-                : (b /= 1000) < 999_950L ? String.format("%s%.1f MB", s, b / 1e3)
-                : (b /= 1000) < 999_950L ? String.format("%s%.1f GB", s, b / 1e3)
-                : (b /= 1000) < 999_950L ? String.format("%s%.1f TB", s, b / 1e3)
-                : (b /= 1000) < 999_950L ? String.format("%s%.1f PB", s, b / 1e3)
-                : String.format("%s%.1f EB", s, b / 1e6);
     }
 
 }

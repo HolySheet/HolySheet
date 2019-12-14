@@ -2,12 +2,8 @@ package com.uddernetworks.drivestore.docs;
 
 import com.google.api.client.googleapis.media.MediaHttpDownloader;
 import com.google.api.client.googleapis.media.MediaHttpDownloaderProgressListener;
-import com.google.api.client.googleapis.media.MediaHttpUploader;
-import com.google.api.client.googleapis.media.MediaHttpUploaderProgressListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
 
 public class DownloadProgressListener implements MediaHttpDownloaderProgressListener {
 
