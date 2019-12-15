@@ -12,7 +12,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
@@ -110,7 +109,7 @@ public class CommandHandler {
 //                    });
 
 //                    var ups = sheetIO.uploadSheet(name, new FileInputStream(file).readAllBytes());
-                    var ups = sheetIO.uploadSheet(name, "This is a test of some bullshit idk if this will work but it uses chunks instead of a single file haha".getBytes());
+                    var ups = sheetIO.uploadData(name, "This is a test of some bullshit idk if this will work but it uses chunks instead of a single file haha".getBytes());
 
                     LOGGER.info("Uploaded {} in {}ms", ups.getId(), System.currentTimeMillis() - start);
                 } catch (IOException e) {
@@ -134,16 +133,23 @@ public class CommandHandler {
                     return;
                 }
 
-//                try (var fileStream = new FileOutputStream(sheet.getName().replace(". ", "."))) {
-//                    docManager.download(idName, fileStream);
-//                }
+                try (var fileStream = new FileOutputStream(sheet.getName())) {
+                    var byteOptional = docManager.getSheetIO().downloadData(idName);
+                    if (byteOptional.isEmpty()) {
+                        LOGGER.error("An error occurred while downloading {}", idName);
+                        return;
+                    }
+
+                    fileStream.write(byteOptional.get().toByteArray());
+                }
 
                 LOGGER.info("Downloaded in {}ms", System.currentTimeMillis() - start);
             } else {
                 formatter.printHelp("DocStore", options);
             }
         } catch (ParseException | IOException e) {
-            System.err.println(e.getMessage());
+//            System.err.println(e.getMessage());
+            LOGGER.error("Error", e);
             formatter.printHelp("DocStore", options);
         }
     }

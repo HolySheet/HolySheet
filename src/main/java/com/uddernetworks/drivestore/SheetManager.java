@@ -93,7 +93,11 @@ public class SheetManager {
     }
 
     public List<File> getAllSheets() throws IOException {
-        return getFiles(-1, "parents in '" + docstore.getId() + "'", Mime.SHEET);
+        return getAllFile(docstore.getId());
+    }
+
+    public List<File> getAllFile(String id) throws IOException {
+        return getFiles(-1, "parents in '" + id + "'", Mime.SHEET);
     }
 
     public File createFolder(String name) throws IOException {
@@ -166,7 +170,7 @@ public class SheetManager {
     private FileList getPagesFiles(String pageToken, int pageSize, Mime[] mimes, String query) throws IOException {
         var builder = drive.files().list()
                 .setPageSize(pageSize)
-                .setFields("nextPageToken, files(id, name, mimeType, parents, size, modifiedTime)");
+                .setFields("nextPageToken, files(id, name, mimeType, parents, size, modifiedTime, properties)");
 
         if (pageToken != null && !pageToken.isBlank()) {
             builder.setPageToken(pageToken);
