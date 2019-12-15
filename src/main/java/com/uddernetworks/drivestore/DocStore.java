@@ -16,11 +16,11 @@ public class DocStore {
     private Drive drive;
     private Sheets sheets;
 
-    public static void main(String[] args) throws GeneralSecurityException, IOException {
+    public static void main(String[] args) {
         new DocStore().start(args);
     }
 
-    private void start(String[] args) throws GeneralSecurityException, IOException {
+    private void start(String[] args) {
         var commandHandler = new CommandHandler();
         commandHandler.parseCommand(args, this, () -> {
             try {
@@ -28,46 +28,15 @@ public class DocStore {
 
                 authManager = new AuthManager();
                 authManager.initialize();
-//                docs = authManager.getDocs();
                 drive = authManager.getDrive();
                 sheets = authManager.getSheets();
 
                 docManager = new DocManager(this);
                 docManager.init();
-
-//                new SheetManager(sheets).init();
             } catch (GeneralSecurityException | IOException e) {
                 LOGGER.error("Error initializing", e);
             }
         });
-
-
-
-//        LOGGER.info("Listing...");
-//        var uploads = docManager.listUploads();
-//        uploads.forEach(file -> {
-//            System.out.println(file.getName() + " > " + file.getId());
-//        });
-
-//        docManager.uploadData("This is a test of some text lmao maybe this will work, maybe it won't, who really knows. This should be capable of storing any binary values, at a very large capacity due to being able to store an entire long (64 bytes) in a single character.".getBytes()).ifPresent(id -> {
-//            LOGGER.info("Created ID: {}", id);
-//        });
-
-        // Has data: 1RfXAXrkIsqvMc9nOCjB23HcEP9VIsy5BZr5S4EZddgo
-
-//        docManager.retrieveData("1-Wpyi94msOtOdKDQT4ahQyPPgqkNiYKefxjVTJVrgwc").ifPresentOrElse(bytes -> {
-//            LOGGER.info("Found data:\n\t{}", new String(bytes));
-//        }, () -> {
-//            LOGGER.error("No data found!");
-//        });
-
-        /*
-
-        This is a test of some text lmao maybe this will work, maybe it won't, who really knows.
-        This should be capable of storing any binary values, at a very large capacity due to being
-        able to store an entire long (64 bytes) in a single character.
-
-         */
     }
 
     public AuthManager getAuthManager() {

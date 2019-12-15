@@ -7,29 +7,29 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 
+import static com.uddernetworks.drivestore.Utility.progressBar;
+
 public class ProgressListener implements MediaHttpUploaderProgressListener {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ProgressListener.class);
 
-    private final String name;
+    private final String fileName;
 
-    public ProgressListener(String name) {
-        this.name = name;
+    public ProgressListener(String fileName) {
+        this.fileName = fileName;
     }
 
     public void progressChanged(MediaHttpUploader uploader) throws IOException {
         switch (uploader.getUploadState()) {
-            case INITIATION_STARTED:
-                LOGGER.info("[{}] Initiation started", name);
-                break;
-            case INITIATION_COMPLETE:
-                LOGGER.info("[{}] Initiation is complete", name);
+            case MEDIA_COMPLETE:
+                System.out.print('\r');
+                System.out.print(progressBar("Uploading " + fileName + ":", 30, uploader.getProgress()));
+                System.out.println();
+                LOGGER.info("Upload complete");
                 break;
             case MEDIA_IN_PROGRESS:
-                LOGGER.info("[{}] {}%", name, uploader.getProgress());
-                break;
-            case MEDIA_COMPLETE:
-                LOGGER.info("[{}] Upload complete", name);
+                System.out.print('\r');
+                System.out.print(progressBar("Uploading " + fileName + ":", 30, uploader.getProgress()));
                 break;
         }
     }

@@ -1,6 +1,9 @@
 package com.uddernetworks.drivestore;
 
 import com.google.api.client.http.ByteArrayContent;
+import com.google.api.client.http.HttpBackOffUnsuccessfulResponseHandler;
+import com.google.api.client.http.MultipartContent;
+import com.google.api.client.util.ExponentialBackOff;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.model.File;
 import com.google.api.services.drive.model.FileList;
@@ -21,9 +24,14 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static com.uddernetworks.drivestore.COptional.getCOptional;
+import static com.uddernetworks.drivestore.Utility.round;
 import static com.uddernetworks.drivestore.encoding.ByteUtil.humanReadableByteCountSI;
 
 public class DocManager {
@@ -67,20 +75,20 @@ public class DocManager {
     public File uploadSheet(String title, byte[] data) throws IOException {
         var encoded = EncodingOutputStream.encode(data);
 
-        LOGGER.info("Encoded from {} - {} ({}% overhead)", humanReadableByteCountSI(data.length), humanReadableByteCountSI(encoded.length), round(data.length / (double) encoded.length * 100D, 2));
+        LOGGER.info("Encoded from {} - {} ({}% overhead)", humanReadableByteCountSI(data.length), humanReadableByteCountSI(encoded.length), round((encoded.length - data.length) / (double) data.length * 100D, 2));
 
         var content = new ByteArrayContent("text/tab-separated-values", encoded);
         var request = drive.files().create(new File()
                 .setMimeType(Mime.SHEET.getMime())
                 .setName(title.replace(".", ". "))
-                .setParents(Collections.singletonList(docstore.getId())), content);
-        request.getMediaHttpUploader().setProgressListener(new ProgressListener("Upload"));
-        return request.execute();
-    }
+//                .setProperties() // TODO: Use properties for parts and other data
+                .setParents(Collections.singletonList(docstore.getId())), content)
+                .setFields("id");
 
-    private String round(double number, int places) {
-        double scale = Math.pow(10, places);
-        return String.valueOf(Math.round(number * scale) / scale);
+        request.getMediaHttpUploader()
+                .setChunkSize(5 * 0x100000) // 5MB (Default 10)
+                .setProgressListener(new ProgressListener(title));
+        return request.execute();
     }
 
     public ByteArrayOutputStream download(String id) throws IOException {
@@ -89,7 +97,9 @@ public class DocManager {
 
     public <T extends OutputStream> T download(String id, T out) throws IOException {
         var encodingOut = new DecodingOutputStream<>(out);
-        IOUtils.copy(drive.files().export(id, "text/tab-separated-values").executeMediaAsInputStream(), encodingOut);
+        var export = drive.files().export(id, "text/tab-separated-values");
+        System.out.println("Downloader: " + export.getMediaHttpDownloader());
+        IOUtils.copy(export.executeMediaAsInputStream(), encodingOut);
         return encodingOut.getOut();
     }
 

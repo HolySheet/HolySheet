@@ -6,10 +6,14 @@ import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver;
 import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow;
 import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
+import com.google.api.client.http.HttpBackOffUnsuccessfulResponseHandler;
+import com.google.api.client.http.HttpRequest;
 import com.google.api.client.http.HttpRequestInitializer;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
+import com.google.api.client.util.BackOff;
+import com.google.api.client.util.ExponentialBackOff;
 import com.google.api.client.util.store.FileDataStoreFactory;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.DriveScopes;
@@ -33,7 +37,6 @@ public class AuthManager {
     private static final List<String> SCOPES = List.of(DriveScopes.DRIVE, SheetsScopes.SPREADSHEETS);
     private static final String CREDENTIALS_FILE_PATH = "/credentials.json";
 
-//    private Docs docs;
     private Drive drive;
     private Sheets sheets;
 
@@ -41,12 +44,23 @@ public class AuthManager {
         final NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
         var credentials = getCredentials(HTTP_TRANSPORT);
 
-//        docs = new Docs.Builder(HTTP_TRANSPORT, JSON_FACTORY, setHttpTimeout(credentials))
-//                .setApplicationName(APPLICATION_NAME)
-//                .build();
-
         drive = new Drive.Builder(HTTP_TRANSPORT, JSON_FACTORY, credentials)
                 .setApplicationName(APPLICATION_NAME)
+                .setHttpRequestInitializer(new HttpRequestInitializer() {
+                    @Override
+                    public void initialize(HttpRequest httpRequest) throws IOException {
+                        httpRequest.setUnsuccessfulResponseHandler(new HttpBackOffUnsuccessfulResponseHandler(backOff()));
+                        credentials.initialize(httpRequest);
+                        httpRequest.setConnectTimeout(300 * 60000);
+                        httpRequest.setReadTimeout(300 * 60000);
+                    }
+
+                    private final ExponentialBackOff.Builder BACK_OFF = new ExponentialBackOff.Builder().setInitialIntervalMillis(500);
+
+                    private BackOff backOff() {
+                        return BACK_OFF.build();
+                    }
+                })
                 .build();
 
         sheets = new Sheets.Builder(HTTP_TRANSPORT, JSON_FACTORY, credentials)
@@ -68,14 +82,6 @@ public class AuthManager {
                 .build();
         var receier = new LocalServerReceiver.Builder().setPort(8888).build();
         return new AuthorizationCodeInstalledApp(flow, receier).authorize("user");
-    }
-
-    private HttpRequestInitializer setHttpTimeout(final HttpRequestInitializer requestInitializer) {
-        return httpRequest -> {
-            requestInitializer.initialize(httpRequest);
-            httpRequest.setConnectTimeout(5 * 60000);  // 5 minutes connect timeout
-            httpRequest.setReadTimeout(6 * 60000);  // 5 minutes read timeout
-        };
     }
 
     public Sheets getSheets() {
