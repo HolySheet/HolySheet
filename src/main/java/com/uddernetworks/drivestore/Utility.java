@@ -17,4 +17,11 @@ public class Utility {
         line += "] " + ((int) (percent * 100)) + "%";
         return line;
     }
+
+    public static void sleep(long millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException ignored) {
+        }
+    }
 }

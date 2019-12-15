@@ -12,7 +12,7 @@ public class DocStore {
     private static final Logger LOGGER = LoggerFactory.getLogger(DocStore.class);
 
     private AuthManager authManager;
-    private DocManager docManager;
+    private SheetManager sheetManager;
     private Drive drive;
     private Sheets sheets;
 
@@ -31,8 +31,8 @@ public class DocStore {
                 drive = authManager.getDrive();
                 sheets = authManager.getSheets();
 
-                docManager = new DocManager(this);
-                docManager.init();
+                sheetManager = new SheetManager(this);
+                sheetManager.init();
             } catch (GeneralSecurityException | IOException e) {
                 LOGGER.error("Error initializing", e);
             }
@@ -43,8 +43,8 @@ public class DocStore {
         return authManager;
     }
 
-    public DocManager getDocManager() {
-        return docManager;
+    public SheetManager getSheetManager() {
+        return sheetManager;
     }
 
     public Drive getDrive() {

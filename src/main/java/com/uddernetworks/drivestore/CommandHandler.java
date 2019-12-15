@@ -66,7 +66,7 @@ public class CommandHandler {
             } else if (cmd.hasOption("list")) {
                 init.run();
 
-                var docManager = docStore.getDocManager();
+                var docManager = docStore.getSheetManager();
 
                 var table = new ConsoleTable()
                         .addColumn("Name", 20)
@@ -98,15 +98,20 @@ public class CommandHandler {
 
                 init.run();
 
+                var sheetIO = docStore.getSheetManager().getSheetIO();
+
                 try {
                     long start = System.currentTimeMillis();
                     var name = FilenameUtils.getName(file.getAbsolutePath());
-//                    docStore.getDocManager().uploadData(name, new FileInputStream(file)).ifPresentOrElse(id -> {
+//                    docStore.getSheetManager().uploadData(name, new FileInputStream(file)).ifPresentOrElse(id -> {
 //                        LOGGER.info("Uploaded {} with ID of: {}", name, GREEN + id + RESET);
 //                    }, () -> {
 //                        LOGGER.error("Couldn't upload file");
 //                    });
-                    var ups = docStore.getDocManager().uploadSheet(name, new FileInputStream(file).readAllBytes());
+
+//                    var ups = sheetIO.uploadSheet(name, new FileInputStream(file).readAllBytes());
+                    var ups = sheetIO.uploadSheet(name, "This is a test of some bullshit idk if this will work but it uses chunks instead of a single file haha".getBytes());
+
                     LOGGER.info("Uploaded {} in {}ms", ups.getId(), System.currentTimeMillis() - start);
                 } catch (IOException e) {
                     LOGGER.error("Error reading and uploading file", e);
@@ -114,7 +119,7 @@ public class CommandHandler {
             } else if (cmd.hasOption("download")) {
                 init.run();
 
-                var docManager = docStore.getDocManager();
+                var docManager = docStore.getSheetManager();
                 var idName = cmd.getOptionValue("download");
 
                 if (ID_PATTERN.matcher(idName).matches()) {
@@ -129,9 +134,9 @@ public class CommandHandler {
                     return;
                 }
 
-                try (var fileStream = new FileOutputStream(sheet.getName().replace(". ", "."))) {
-                    docManager.download(idName, fileStream);
-                }
+//                try (var fileStream = new FileOutputStream(sheet.getName().replace(". ", "."))) {
+//                    docManager.download(idName, fileStream);
+//                }
 
                 LOGGER.info("Downloaded in {}ms", System.currentTimeMillis() - start);
             } else {

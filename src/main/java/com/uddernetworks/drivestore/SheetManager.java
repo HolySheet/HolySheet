@@ -1,9 +1,6 @@
 package com.uddernetworks.drivestore;
 
 import com.google.api.client.http.ByteArrayContent;
-import com.google.api.client.http.HttpBackOffUnsuccessfulResponseHandler;
-import com.google.api.client.http.MultipartContent;
-import com.google.api.client.util.ExponentialBackOff;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.model.File;
 import com.google.api.services.drive.model.FileList;
@@ -11,6 +8,7 @@ import com.google.api.services.sheets.v4.Sheets;
 import com.uddernetworks.drivestore.docs.ProgressListener;
 import com.uddernetworks.drivestore.encoding.DecodingOutputStream;
 import com.uddernetworks.drivestore.encoding.EncodingOutputStream;
+import com.uddernetworks.drivestore.io.SheetIO;
 import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,28 +21,29 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static com.uddernetworks.drivestore.COptional.getCOptional;
 import static com.uddernetworks.drivestore.Utility.round;
 import static com.uddernetworks.drivestore.encoding.ByteUtil.humanReadableByteCountSI;
 
-public class DocManager {
+public class SheetManager {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(DocManager.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(SheetManager.class);
+
+    private static final int MB = 0x100000;
+    private static final double MAX_SHEET_SIZE = 25 * MB;
 
     private final DocStore docStore;
     private final Drive drive;
     private final Sheets sheets;
+    private SheetIO sheetIO;
 
     private File docstore;
 
-    public DocManager(DocStore docStore) {
+    public SheetManager(DocStore docStore) {
         this.docStore = docStore;
         this.drive = docStore.getDrive();
         this.sheets = docStore.getSheets();
@@ -56,51 +55,20 @@ public class DocManager {
 
             docstore = getCOptional(getFiles(1, "name = 'docstore'", Mime.FOLDER)).orElseGet(() -> {
                 try {
-                    return drive.files().create(new File()
-                            .setMimeType(Mime.FOLDER.getMime())
-                            .setName("docstore")).execute();
+                    return createFolder("docstore");
                 } catch (IOException e) {
                     throw new UncheckedIOException(e);
                 }
             });
 
             LOGGER.info("docstore id: {}", docstore.getId());
+
+            sheetIO = new SheetIO(this);
         } catch (IOException e) {
             LOGGER.error("An error occurred while finding or creating docstore directory", e);
         }
 
         LOGGER.info("Done!");
-    }
-
-    public File uploadSheet(String title, byte[] data) throws IOException {
-        var encoded = EncodingOutputStream.encode(data);
-
-        LOGGER.info("Encoded from {} - {} ({}% overhead)", humanReadableByteCountSI(data.length), humanReadableByteCountSI(encoded.length), round((encoded.length - data.length) / (double) data.length * 100D, 2));
-
-        var content = new ByteArrayContent("text/tab-separated-values", encoded);
-        var request = drive.files().create(new File()
-                .setMimeType(Mime.SHEET.getMime())
-                .setName(title.replace(".", ". "))
-//                .setProperties() // TODO: Use properties for parts and other data
-                .setParents(Collections.singletonList(docstore.getId())), content)
-                .setFields("id");
-
-        request.getMediaHttpUploader()
-                .setChunkSize(5 * 0x100000) // 5MB (Default 10)
-                .setProgressListener(new ProgressListener(title));
-        return request.execute();
-    }
-
-    public ByteArrayOutputStream download(String id) throws IOException {
-        return download(id, new ByteArrayOutputStream());
-    }
-
-    public <T extends OutputStream> T download(String id, T out) throws IOException {
-        var encodingOut = new DecodingOutputStream<>(out);
-        var export = drive.files().export(id, "text/tab-separated-values");
-        System.out.println("Downloader: " + export.getMediaHttpDownloader());
-        IOUtils.copy(export.executeMediaAsInputStream(), encodingOut);
-        return encodingOut.getOut();
     }
 
     public File getFile(String id) throws IOException {
@@ -117,15 +85,31 @@ public class DocManager {
 
     public List<File> listUploads() {
         try {
-            return getSheets();
+            return getAllSheets();
         } catch (IOException e) {
             LOGGER.error("An error occurred while listing uploads", e);
             return Collections.emptyList();
         }
     }
 
-    private List<File> getSheets() throws IOException {
+    public List<File> getAllSheets() throws IOException {
         return getFiles(-1, "parents in '" + docstore.getId() + "'", Mime.SHEET);
+    }
+
+    public File createFolder(String name) throws IOException {
+        return createFolder(name, null);
+    }
+
+    public File createFolder(String name, File parent) throws IOException {
+        return createFolder(name, parent, null);
+    }
+
+    public File createFolder(String name, File parent, Map<String, String> properties) throws IOException {
+        return drive.files().create(new File()
+                .setMimeType(Mime.FOLDER.getMime())
+                .setParents(parent == null ? null : Collections.singletonList(parent.getId()))
+                .setProperties(properties)
+                .setName(name)).execute();
     }
 
     /**
@@ -212,5 +196,21 @@ public class DocManager {
 
         var q = base.substring(0, base.length() - 4);
         return Optional.of(q);
+    }
+
+    public Drive getDrive() {
+        return drive;
+    }
+
+    public Sheets getSheets() {
+        return sheets;
+    }
+
+    public File getDocstore() {
+        return docstore;
+    }
+
+    public SheetIO getSheetIO() {
+        return sheetIO;
     }
 }
