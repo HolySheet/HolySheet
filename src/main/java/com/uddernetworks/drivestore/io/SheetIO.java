@@ -11,14 +11,11 @@ import com.uddernetworks.drivestore.encoding.EncodingOutputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -27,22 +24,16 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.uddernetworks.drivestore.Utility.round;
-import static com.uddernetworks.drivestore.Utility.sleep;
 import static com.uddernetworks.drivestore.encoding.ByteUtil.humanReadableByteCountSI;
-import static com.uddernetworks.drivestore.encoding.EncodingOutputStream.CELL_WIDTH;
 
 public class SheetIO {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SheetIO.class);
 
-    private static final int STAGGER_MS = 750;
+    private static final int STAGGER_MS = 5000;
 
-    private static final int MB = 0x100000;
-    //    private static final int MAX_SHEET_SIZE = 25 * MB;
-    private static final int MAX_SHEET_SIZE = 15;
-    private static final int MAX_ROWS = (int) Math.floor(MAX_SHEET_SIZE / (double) (CELL_WIDTH + 1)); // +1 for newline
-//    private static final int MAX_ROWS = 2; // Make dynamic later
-    private static final int SNAPPED_SIZE = MAX_ROWS * (CELL_WIDTH + 1); // +1 for newline
+    private static final int MB = 1000000;
+    private static final int MAX_SHEET_SIZE = 10 * MB;
 
     private final SheetManager sheetManager;
     private final Drive drive;
@@ -54,10 +45,6 @@ public class SheetIO {
         this.drive = sheetManager.getDrive();
         this.sheets = sheetManager.getSheets();
         this.docstore = sheetManager.getDocstore();
-
-//        System.out.println("MAX_SHEET_SIZE = " + MAX_SHEET_SIZE);
-        System.out.println("MAX_ROWS = " + MAX_ROWS);
-        System.out.println("SNAPPED_SIZE = " + SNAPPED_SIZE);
     }
 
     public Optional<ByteArrayOutputStream> downloadData(String id) throws IOException {
@@ -66,17 +53,14 @@ public class SheetIO {
             LOGGER.error("Couldn't find id {}", id);
             return Optional.empty();
         }
-        System.out.println(parent.getProperties());
 
-//        var props = parent.getProperties();
-//        if (!props.get("directParent").equals("true")) {
-//            LOGGER.error("Not a direct parent!");
-//            return Optional.empty();
-//        }
+        var props = parent.getProperties();
+        if (!props.get("directParent").equals("true")) {
+            LOGGER.error("Not a direct parent!");
+            return Optional.empty();
+        }
 
-        System.out.println("Before");
         var files = sheetManager.getAllFile(parent.getId());
-        System.out.println("After");
 
         LOGGER.info("Found {} children", files.size());
 
@@ -87,19 +71,23 @@ public class SheetIO {
             if (fp == null) return -1;
             return Integer.parseInt(fp.get("index"));
         })).forEach(file -> downloadSheet(file, encodingOut));
+        encodingOut.flush();
         LOGGER.info("Downloaded {} sheets", files.size());
 
         var ou = encodingOut.getOut();
-        System.out.println("Total length (124??): " + ou.toByteArray().length);
+
+        LOGGER.info("Downloaded and unencoded {}", humanReadableByteCountSI(ou.toByteArray().length));
+
         return Optional.of(ou);
     }
 
     private void downloadSheet(File file, OutputStream out) {
         try {
+            var props = file.getProperties();
+            LOGGER.info("Downloading sheet #{} - {}", props.get("index"), humanReadableByteCountSI(Long.parseLong(props.get("size"))));
             var shit = new ByteArrayOutputStream();
             drive.files().export(file.getId(), "text/tab-separated-values").executeMediaAndDownloadTo(shit);
             var ba = shit.toByteArray();
-            System.out.println("ba = " + Arrays.toString(ba));
             out.write(ba);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -107,7 +95,7 @@ public class SheetIO {
     }
 
     public File uploadData(String title, byte[] data) throws IOException {
-        var encoded = EncodingOutputStream.encode(data, MAX_ROWS);
+        var encoded = EncodingOutputStream.encode(data, MAX_SHEET_SIZE);
         var byteArrayList = encoded.getChunks();
 
         LOGGER.info("Encoded from {} - {} ({}% overhead)", humanReadableByteCountSI(data.length), humanReadableByteCountSI(encoded.getLength()), round((encoded.getLength() - data.length) / (double) data.length * 100D, 2));
@@ -136,15 +124,15 @@ public class SheetIO {
     }
 
     private Map<FileChunk, File> processChunks(List<FileChunk> chunks, File parent) {
-        return chunks.parallelStream().collect(Collectors.toMap(c -> c, c -> processChunk(c, parent)));
+        return chunks.stream().collect(Collectors.toMap(c -> c, c -> processChunk(c, parent)));
     }
 
     private File processChunk(FileChunk chunk, File parent) {
         try {
             // Stagger uploads STAGGER_MS ms
-            sleep(chunk.getIndex() * STAGGER_MS);
+//            sleep(chunk.getIndex() * STAGGER_MS);
 
-            LOGGER.info("Processing chunk #{}", chunk.getIndex());
+            LOGGER.info("Processing chunk #{} ({})", chunk.getIndex(), humanReadableByteCountSI(chunk.getBytes().length));
             var content = new ByteArrayContent("text/tab-separated-values", chunk.getBytes());
             var request = drive.files().create(new File()
                     .setMimeType(Mime.SHEET.getMime())
@@ -154,7 +142,7 @@ public class SheetIO {
                     .setFields("id");
 
             request.getMediaHttpUploader()
-                    .setChunkSize(5 * MB) // 5MB (Default 10)
+                    .setChunkSize(5 * 0x100000) // 5MB (Default 10)
 //                .setProgressListener(new ProgressListener(""))
             ;
             return request.execute();

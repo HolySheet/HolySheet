@@ -3,7 +3,6 @@ package com.uddernetworks.drivestore.encoding;
 import java.io.ByteArrayOutputStream;
 import java.io.FilterOutputStream;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -19,50 +18,30 @@ import static com.uddernetworks.drivestore.encoding.DecodingOutputStream.ENCODIN
  */
 public class EncodingOutputStream extends FilterOutputStream {
 
+    public static final int CELL_WIDTH = 0x3FFF; // Half of 0x7FFF
 //    public static final int CELL_WIDTH = 0x7FFF; // Half of 0xFFFF
-    public static final int CELL_WIDTH = 5; // Half of 0xFFFF
+//    public static final int CELL_WIDTH = 5; // Half of 0xFFFF
 
-    private final int maxLines;
+    private final int maxLength;
 
     private int length = 0;
+    private int bufferLength = 0;
     private int index = 0;
 
     private int ebq = 0;
     private int en = 0;
 
-    private int currLine = 0;
     private ByteArrayOutputStream buffer;
     private List<byte[]> chunks = new ArrayList<>();
 
-    public EncodingOutputStream(int maxLines) {
+    public EncodingOutputStream(int maxLength) {
         super(new ByteArrayOutputStream());
-        this.maxLines = maxLines;
+        this.maxLength = maxLength;
         buffer = new ByteArrayOutputStream();
     }
 
     @Override
     public void write(int b) {
-        if (++index % CELL_WIDTH == 0) {
-            if (b != '=' && b != '\'') {
-                index = 0;
-                currLine++;
-
-                if (currLine >= maxLines) {
-                    currLine = 0;
-                    chunks.add(buffer.toByteArray());
-//                    chunks.add(buffer.array());
-//                    buffer.clear();
-                    buffer.reset();
-                } else {
-//                    buffer.put((byte) '\n');
-                    buffer.write('\n');
-                    length++;
-                }
-            } else {
-                index--;
-            }
-        }
-
         ebq |= (b & 255) << en;
         en += 8;
         if (en > 13) {
@@ -76,12 +55,32 @@ public class EncodingOutputStream extends FilterOutputStream {
                 ebq >>= 14;
                 en -= 14;
             }
-//            out.write(ENCODING_TABLE[ev % BASE]);
-//            out.write(ENCODING_TABLE[ev / BASE]);
 
-            buffer.write(ENCODING_TABLE[ev % BASE]);
-            buffer.write(ENCODING_TABLE[ev / BASE]);
+            var first = ENCODING_TABLE[ev % BASE];
+            var second = ENCODING_TABLE[ev / BASE];
+
+            if (++index % CELL_WIDTH == 0) {
+                if (first != '=' && first != '\'') {
+                    index = 0;
+
+                    if (bufferLength >= maxLength) {
+                        bufferLength = 0;
+                        chunks.add(buffer.toByteArray());
+                        buffer.reset();
+                    } else {
+                        buffer.write('\n');
+                        length++;
+                        bufferLength++;
+                    }
+                } else {
+                    index--;
+                }
+            }
+
+            buffer.write(first);
+            buffer.write(second);
             length += 2;
+            bufferLength += 2;
         }
     }
 
@@ -94,9 +93,17 @@ public class EncodingOutputStream extends FilterOutputStream {
 
     @Override
     public void flush() throws IOException {
-        if (index > 0) {
+        if (en > 0) {
+            buffer.write(ENCODING_TABLE[ebq % BASE]);
+            if (en > 7 || ebq > 90) {
+                buffer.write(ENCODING_TABLE[ebq / BASE]);
+            }
+        }
+
+        if (en > 0 || index > 0) {
             chunks.add(buffer.toByteArray());
         }
+
         super.flush();
     }
 

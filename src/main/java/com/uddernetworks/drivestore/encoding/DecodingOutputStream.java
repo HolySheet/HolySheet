@@ -18,7 +18,7 @@ public class DecodingOutputStream<T extends OutputStream> extends ByteArrayFilte
     public static final int BASE;
 
     static {
-        // Diverted from Base91 spec: . to -   , to '
+        // Diverted from Base91 spec:  . to -  and  , to '
         String ts = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$%&()*+'-/:;<=>?@[]^_`{|}~\"";
         ENCODING_TABLE = ts.getBytes(StandardCharsets.ISO_8859_1);
         BASE = ENCODING_TABLE.length;

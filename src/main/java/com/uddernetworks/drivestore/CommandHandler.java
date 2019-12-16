@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
@@ -108,8 +109,8 @@ public class CommandHandler {
 //                        LOGGER.error("Couldn't upload file");
 //                    });
 
-//                    var ups = sheetIO.uploadSheet(name, new FileInputStream(file).readAllBytes());
-                    var ups = sheetIO.uploadData(name, "This is a test of some bullshit idk if this will work but it uses chunks instead of a single file haha".getBytes());
+                    var ups = sheetIO.uploadData(name, new FileInputStream(file).readAllBytes());
+//                    var ups = sheetIO.uploadData(name, "This is a test of some bullshit idk if this will work but it uses chunks instead of a single file haha".getBytes());
 
                     LOGGER.info("Uploaded {} in {}ms", ups.getId(), System.currentTimeMillis() - start);
                 } catch (IOException e) {

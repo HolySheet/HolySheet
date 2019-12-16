@@ -7,7 +7,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
 
 public class ConsoleTable {
 
@@ -44,7 +43,10 @@ public class ConsoleTable {
             }
 
             var i = new AtomicInteger();
-            builder.append(row.stream().map(column -> limit(column, columnWidths[i.getAndIncrement()]) + " ".repeat(horizontalSpacing)).collect(Collectors.joining())).append("\n");
+            row.stream().map(column ->
+                    limit(column, columnWidths[i.getAndIncrement()]) + " ".repeat(horizontalSpacing))
+                    .forEach(builder::append);
+            builder.append("\n");
         });
 
         return builder.toString();

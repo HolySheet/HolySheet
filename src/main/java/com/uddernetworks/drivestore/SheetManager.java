@@ -1,21 +1,14 @@
 package com.uddernetworks.drivestore;
 
-import com.google.api.client.http.ByteArrayContent;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.model.File;
 import com.google.api.services.drive.model.FileList;
 import com.google.api.services.sheets.v4.Sheets;
-import com.uddernetworks.drivestore.docs.ProgressListener;
-import com.uddernetworks.drivestore.encoding.DecodingOutputStream;
-import com.uddernetworks.drivestore.encoding.EncodingOutputStream;
 import com.uddernetworks.drivestore.io.SheetIO;
-import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -26,8 +19,6 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.uddernetworks.drivestore.COptional.getCOptional;
-import static com.uddernetworks.drivestore.Utility.round;
-import static com.uddernetworks.drivestore.encoding.ByteUtil.humanReadableByteCountSI;
 
 public class SheetManager {
 
