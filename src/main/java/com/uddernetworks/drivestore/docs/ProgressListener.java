@@ -7,7 +7,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 
-import static com.uddernetworks.drivestore.Utility.progressBar;
+import static com.uddernetworks.drivestore.utility.Utility.progressBar;
 
 public class ProgressListener implements MediaHttpUploaderProgressListener {
 

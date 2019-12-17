@@ -18,7 +18,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static com.uddernetworks.drivestore.COptional.getCOptional;
+import static com.uddernetworks.drivestore.utility.Utility.getCollectionFirst;
 
 public class SheetManager {
 
@@ -44,7 +44,7 @@ public class SheetManager {
         try {
             LOGGER.info("Finding docstore folder...");
 
-            docstore = getCOptional(getFiles(1, "name = 'docstore'", Mime.FOLDER)).orElseGet(() -> {
+            docstore = getCollectionFirst(getFiles(1, "name = 'docstore'", Mime.FOLDER)).orElseGet(() -> {
                 try {
                     return createFolder("docstore");
                 } catch (IOException e) {
@@ -68,7 +68,7 @@ public class SheetManager {
 
     public Optional<String> getIdOfName(String name) {
         try {
-            return getCOptional(getFiles(-1, "parents in '" + docstore.getId() + "' and name contains '" + name.replace("'", "") + "'", Mime.DOCUMENT)).map(File::getId);
+            return getCollectionFirst(getFiles(-1, "parents in '" + docstore.getId() + "' and name contains '" + name.replace("'", "") + "'", Mime.DOCUMENT)).map(File::getId);
         } catch (IOException e) {
             return Optional.empty();
         }
@@ -88,7 +88,7 @@ public class SheetManager {
     }
 
     public List<File> getAllFile(String id) throws IOException {
-        return getFiles(-1, "parents in '" + id + "'", Mime.SHEET);
+        return getFiles(-1, "parents in '" + id + "' and properties has { key='directParent' and value='true' }", Mime.FOLDER);
     }
 
     public File createFolder(String name) throws IOException {

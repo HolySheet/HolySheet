@@ -7,7 +7,8 @@ group 'com.uddernetworks.drivestore'
 version '1.0.0'
 
 sourceCompatibility = 11
-mainClassName = 'com.uddernetworks.drivestore.DocStore'
+//mainClassName = 'com.uddernetworks.drivestore.DocStore'
+mainClassName = 'com.uddernetworks.drivestore.command.Example'
 
 repositories {
     mavenCentral()
@@ -22,7 +23,11 @@ dependencies {
     implementation 'org.apache.commons:commons-text:1.7'
     implementation 'commons-collections:commons-collections:3.2.2'
     implementation 'commons-io:commons-io:2.6'
-    implementation 'commons-cli:commons-cli:1.4'
+    implementation 'org.apache.commons:commons-compress:1.19'
+    implementation 'org.tukaani:xz:1.8'
+
+    implementation 'info.picocli:picocli:4.1.2'
+    annotationProcessor 'info.picocli:picocli-codegen:4.1.2'
 
     implementation 'com.google.api-client:google-api-client:1.30.1'
     implementation 'com.google.oauth-client:google-oauth-client-jetty:1.30.1'
@@ -32,4 +37,8 @@ dependencies {
 
 test {
     useJUnitPlatform()
+}
+
+compileJava {
+    options.compilerArgs += ["-Aproject=${project.group}/${project.name}"]
 }

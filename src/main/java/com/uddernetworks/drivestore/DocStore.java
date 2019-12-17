@@ -2,8 +2,10 @@ package com.uddernetworks.drivestore;
 
 import com.google.api.services.drive.Drive;
 import com.google.api.services.sheets.v4.Sheets;
+import com.uddernetworks.drivestore.command.CommandHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import picocli.CommandLine;
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;
@@ -21,22 +23,23 @@ public class DocStore {
     }
 
     private void start(String[] args) {
-        var commandHandler = new CommandHandler();
-        commandHandler.parseCommand(args, this, () -> {
-            try {
-                LOGGER.info("Initializing everything...");
+        System.exit(new CommandLine(new CommandHandler(this)).execute(args));
+    }
 
-                authManager = new AuthManager();
-                authManager.initialize();
-                drive = authManager.getDrive();
-                sheets = authManager.getSheets();
+    public void init() {
+        try {
+            LOGGER.info("Initializing everything...");
 
-                sheetManager = new SheetManager(this);
-                sheetManager.init();
-            } catch (GeneralSecurityException | IOException e) {
-                LOGGER.error("Error initializing", e);
-            }
-        });
+            authManager = new AuthManager();
+            authManager.initialize();
+            drive = authManager.getDrive();
+            sheets = authManager.getSheets();
+
+            sheetManager = new SheetManager(this);
+            sheetManager.init();
+        } catch (GeneralSecurityException | IOException e) {
+            LOGGER.error("Error initializing", e);
+        }
     }
 
     public AuthManager getAuthManager() {

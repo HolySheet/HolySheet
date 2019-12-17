@@ -8,14 +8,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class ConsoleTable {
+public class ConsoleTableBuilder {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(ConsoleTable.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(ConsoleTableBuilder.class);
 
     private int horizontalSpacing = 1;
     private Map<String, Integer> columns = new LinkedHashMap<>();
 
-    public ConsoleTable addColumn(String title, int width) {
+    public ConsoleTableBuilder addColumn(String title, int width) {
         if (title.length() > width) {
             LOGGER.error("Title width can not be more than the set width");
             return this;
@@ -56,7 +56,7 @@ public class ConsoleTable {
         return horizontalSpacing;
     }
 
-    public ConsoleTable setHorizontalSpacing(int horizontalSpacing) {
+    public ConsoleTableBuilder setHorizontalSpacing(int horizontalSpacing) {
         this.horizontalSpacing = horizontalSpacing;
         return this;
     }

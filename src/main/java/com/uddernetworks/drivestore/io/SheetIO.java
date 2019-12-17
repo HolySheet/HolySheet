@@ -8,6 +8,10 @@ import com.uddernetworks.drivestore.Mime;
 import com.uddernetworks.drivestore.SheetManager;
 import com.uddernetworks.drivestore.encoding.DecodingOutputStream;
 import com.uddernetworks.drivestore.encoding.EncodingOutputStream;
+import org.apache.commons.compress.archivers.sevenz.SevenZArchiveEntry;
+import org.apache.commons.compress.archivers.sevenz.SevenZFile;
+import org.apache.commons.compress.archivers.sevenz.SevenZOutputFile;
+import org.apache.commons.compress.utils.SeekableInMemoryByteChannel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,13 +22,14 @@ import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static com.uddernetworks.drivestore.Utility.round;
-import static com.uddernetworks.drivestore.encoding.ByteUtil.humanReadableByteCountSI;
+import static com.uddernetworks.drivestore.utility.Utility.round;
+import static com.uddernetworks.drivestore.utility.Utility.humanReadableByteCountSI;
 
 public class SheetIO {
 
@@ -76,36 +81,61 @@ public class SheetIO {
 
         var ou = encodingOut.getOut();
 
-        LOGGER.info("Downloaded and unencoded {}", humanReadableByteCountSI(ou.toByteArray().length));
+        SeekableInMemoryByteChannel inMemoryByteChannel = new SeekableInMemoryByteChannel(ou.toByteArray());
+        SevenZFile sevenZFile = new SevenZFile(inMemoryByteChannel);
+        SevenZArchiveEntry entry = sevenZFile.getNextEntry();
 
-        return Optional.of(ou);
+        var uncompressed = new ByteArrayOutputStream();
+        for (int i; (i =sevenZFile.read()) != -1;) {
+            uncompressed.write(i);
+        }
+
+        LOGGER.info("Downloaded and unencoded {}", humanReadableByteCountSI(uncompressed.toByteArray().length));
+
+        return Optional.of(uncompressed);
     }
 
     private void downloadSheet(File file, OutputStream out) {
         try {
-            var props = file.getProperties();
-            LOGGER.info("Downloading sheet #{} - {}", props.get("index"), humanReadableByteCountSI(Long.parseLong(props.get("size"))));
-            var shit = new ByteArrayOutputStream();
-            drive.files().export(file.getId(), "text/tab-separated-values").executeMediaAndDownloadTo(shit);
-            var ba = shit.toByteArray();
-            out.write(ba);
+            var properties = file.getProperties();
+            LOGGER.info("Downloading sheet #{} - {}", properties.get("index"), humanReadableByteCountSI(Long.parseLong(properties.get("size"))));
+            var byteOutput = new ByteArrayOutputStream();
+            drive.files().export(file.getId(), "text/tab-separated-values").executeMediaAndDownloadTo(byteOutput);
+            out.write(byteOutput.toByteArray());
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
     }
 
     public File uploadData(String title, byte[] data) throws IOException {
-        var encoded = EncodingOutputStream.encode(data, MAX_SHEET_SIZE);
+
+//        var sevenZOutput = new SevenZOutputFile();
+//        var sevenZFile = new SevenZFile(new SeekableInMemoryByteChannel(data));
+
+        var channel = new SeekableInMemoryByteChannel();
+        SevenZOutputFile sevenZOutput = new SevenZOutputFile(channel);
+        var entry = new SevenZArchiveEntry();
+        entry.setDirectory(false);
+        entry.setName("7z");
+        entry.setLastModifiedDate(new Date());
+
+        sevenZOutput.putArchiveEntry(entry);
+        sevenZOutput.write(data);
+        sevenZOutput.closeArchiveEntry();
+
+        var sevenZEncoded = channel.array();
+
+        var encoded = EncodingOutputStream.encode(sevenZEncoded, MAX_SHEET_SIZE);
         var byteArrayList = encoded.getChunks();
 
-        LOGGER.info("Encoded from {} - {} ({}% overhead)", humanReadableByteCountSI(data.length), humanReadableByteCountSI(encoded.getLength()), round((encoded.getLength() - data.length) / (double) data.length * 100D, 2));
+        LOGGER.info("Encoded from {} - {} ({}% overhead)", humanReadableByteCountSI(sevenZEncoded.length), humanReadableByteCountSI(encoded.getLength()), round((encoded.getLength() - sevenZEncoded.length) / (double) sevenZEncoded.length * 100D, 2));
 
         LOGGER.info("This upload will use {} sheets", byteArrayList.size());
 
         var parent = sheetManager.createFolder(title, sheetManager.getDocstore(), Map.of(
                 "directParent", "true",
                 "size", String.valueOf(encoded.getLength()),
-                "sheets", String.valueOf(sheets)
+                "sheets", String.valueOf(byteArrayList.size())
         ));
 
         LOGGER.info("Created parent docstore/{} ({})", parent.getName(), parent.getId());
@@ -142,9 +172,7 @@ public class SheetIO {
                     .setFields("id");
 
             request.getMediaHttpUploader()
-                    .setChunkSize(5 * 0x100000) // 5MB (Default 10)
-//                .setProgressListener(new ProgressListener(""))
-            ;
+                    .setChunkSize(5 * 0x100000); // 5MB (Default 10)
             return request.execute();
         } catch (IOException e) {
             throw new UncheckedIOException(e);
