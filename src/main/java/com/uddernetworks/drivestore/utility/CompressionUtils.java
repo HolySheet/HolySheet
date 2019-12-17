@@ -1,8 +1,11 @@
 package com.uddernetworks.drivestore.utility;
 
+import org.apache.commons.io.IOUtils;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -31,6 +34,17 @@ public class CompressionUtils {
             e.printStackTrace();
             return new byte[0];
         }
+    }
+
+    public static ByteArrayOutputStream uncompressToOutputStream(byte[] input) {
+        var out = new ByteArrayOutputStream();
+        try (var inputStream = new ZipInputStream(new ByteArrayInputStream(input), StandardCharsets.UTF_8)) {
+            inputStream.getNextEntry();
+            out.write(inputStream.readAllBytes());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return out;
     }
 
 }

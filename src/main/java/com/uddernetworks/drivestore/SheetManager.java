@@ -84,11 +84,15 @@ public class SheetManager {
     }
 
     public List<File> getAllSheets() throws IOException {
-        return getAllFile(docstore.getId());
+        return getAllFolder(docstore.getId());
     }
 
-    public List<File> getAllFile(String id) throws IOException {
+    public List<File> getAllFolder(String id) throws IOException {
         return getFiles(-1, "parents in '" + id + "' and properties has { key='directParent' and value='true' }", Mime.FOLDER);
+    }
+
+    public List<File> getAllSheets(String id) throws IOException {
+        return getFiles(-1, "parents in '" + id + "'", Mime.SHEET);
     }
 
     public File createFolder(String name) throws IOException {

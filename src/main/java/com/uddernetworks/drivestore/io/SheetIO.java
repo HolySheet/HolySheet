@@ -8,10 +8,7 @@ import com.uddernetworks.drivestore.Mime;
 import com.uddernetworks.drivestore.SheetManager;
 import com.uddernetworks.drivestore.encoding.DecodingOutputStream;
 import com.uddernetworks.drivestore.encoding.EncodingOutputStream;
-import org.apache.commons.compress.archivers.sevenz.SevenZArchiveEntry;
-import org.apache.commons.compress.archivers.sevenz.SevenZFile;
-import org.apache.commons.compress.archivers.sevenz.SevenZOutputFile;
-import org.apache.commons.compress.utils.SeekableInMemoryByteChannel;
+import com.uddernetworks.drivestore.utility.CompressionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,10 +19,10 @@ import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Scanner;
 import java.util.stream.Collectors;
 
 import static com.uddernetworks.drivestore.utility.Utility.round;
@@ -65,7 +62,11 @@ public class SheetIO {
             return Optional.empty();
         }
 
-        var files = sheetManager.getAllFile(parent.getId());
+        boolean compressed = props.get("compressed").equals("true");
+
+        LOGGER.info("File is {}", compressed ? "compressed" : "uncompressed");
+
+        var files = sheetManager.getAllSheets(parent.getId());
 
         LOGGER.info("Found {} children", files.size());
 
@@ -79,20 +80,16 @@ public class SheetIO {
         encodingOut.flush();
         LOGGER.info("Downloaded {} sheets", files.size());
 
-        var ou = encodingOut.getOut();
+        var finalStream = encodingOut.getOut();
 
-        SeekableInMemoryByteChannel inMemoryByteChannel = new SeekableInMemoryByteChannel(ou.toByteArray());
-        SevenZFile sevenZFile = new SevenZFile(inMemoryByteChannel);
-        SevenZArchiveEntry entry = sevenZFile.getNextEntry();
-
-        var uncompressed = new ByteArrayOutputStream();
-        for (int i; (i =sevenZFile.read()) != -1;) {
-            uncompressed.write(i);
+        if (compressed) {
+            LOGGER.info("Uncompressing data...");
+            finalStream = CompressionUtils.uncompressToOutputStream(encodingOut.getOut().toByteArray());
         }
 
-        LOGGER.info("Downloaded and unencoded {}", humanReadableByteCountSI(uncompressed.toByteArray().length));
+        LOGGER.info("Downloaded and unencoded {}", humanReadableByteCountSI(finalStream.size()));
 
-        return Optional.of(uncompressed);
+        return Optional.of(finalStream);
     }
 
     private void downloadSheet(File file, OutputStream out) {
@@ -107,35 +104,23 @@ public class SheetIO {
         }
     }
 
-    public File uploadData(String title, byte[] data) throws IOException {
+    public File uploadData(String title, boolean compress, byte[] data) throws IOException {
+        if (compress) {
+            data = CompressionUtils.compress(data);
+        }
 
-//        var sevenZOutput = new SevenZOutputFile();
-//        var sevenZFile = new SevenZFile(new SeekableInMemoryByteChannel(data));
-
-        var channel = new SeekableInMemoryByteChannel();
-        SevenZOutputFile sevenZOutput = new SevenZOutputFile(channel);
-        var entry = new SevenZArchiveEntry();
-        entry.setDirectory(false);
-        entry.setName("7z");
-        entry.setLastModifiedDate(new Date());
-
-        sevenZOutput.putArchiveEntry(entry);
-        sevenZOutput.write(data);
-        sevenZOutput.closeArchiveEntry();
-
-        var sevenZEncoded = channel.array();
-
-        var encoded = EncodingOutputStream.encode(sevenZEncoded, MAX_SHEET_SIZE);
+        var encoded = EncodingOutputStream.encode(data, MAX_SHEET_SIZE);
         var byteArrayList = encoded.getChunks();
 
-        LOGGER.info("Encoded from {} - {} ({}% overhead)", humanReadableByteCountSI(sevenZEncoded.length), humanReadableByteCountSI(encoded.getLength()), round((encoded.getLength() - sevenZEncoded.length) / (double) sevenZEncoded.length * 100D, 2));
+        LOGGER.info("Encoded from {} - {} ({}% overhead)", humanReadableByteCountSI(data.length), humanReadableByteCountSI(encoded.getLength()), round((encoded.getLength() - data.length) / (double) data.length * 100D, 2));
 
         LOGGER.info("This upload will use {} sheets", byteArrayList.size());
 
         var parent = sheetManager.createFolder(title, sheetManager.getDocstore(), Map.of(
                 "directParent", "true",
                 "size", String.valueOf(encoded.getLength()),
-                "sheets", String.valueOf(byteArrayList.size())
+                "sheets", String.valueOf(byteArrayList.size()),
+                "compressed", String.valueOf(compress)
         ));
 
         LOGGER.info("Created parent docstore/{} ({})", parent.getName(), parent.getId());
@@ -151,6 +136,49 @@ public class SheetIO {
         processChunks(chunks, parent);
 
         return parent;
+    }
+
+    public void deleteData(String id) {
+        try {
+            var file = drive.files().get(id).setFields("id, name, properties").execute();
+
+            if (file == null) {
+                LOGGER.error("No file could be found with the given ID \"{}\"", id);
+                return;
+            }
+
+            var properties = file.getProperties();
+            if (!"true".equals(properties.get("directParent"))) {
+                LOGGER.error("The given file was not detected as a direct parent of generated sheet data. For your safety, DocStore will not delete anything not directly created by it, therefore this action has been cancelled.");
+                return;
+            }
+
+            LOGGER.info("Are you sure you want to delete \"{}\"? It consists of {} sheets totalling {}{}. This action skips the trash and is irreversible. (y/n)",
+                    file.getName(),
+                    properties.get("sheets"),
+                    humanReadableByteCountSI(Long.parseLong(properties.get("size"))),
+                    "true".equals(properties.get("compressed")) ? " compressed" : "");
+
+            var scanner = new Scanner(System.in);
+            if (!scanner.hasNextLine()) {
+                LOGGER.info("Cancelling removal.");
+                return;
+            }
+
+            var line = scanner.nextLine();
+            if (!"y".equalsIgnoreCase(line) && "yes".equalsIgnoreCase(line)) {
+                LOGGER.info("Cancelling removal.");
+                return;
+            }
+
+            LOGGER.info("Removing {}...", file.getName());
+
+            drive.files().delete(id).execute();
+
+            LOGGER.info("Removed successfully");
+        } catch (IOException e) {
+            LOGGER.error("An error occurred while deleting the file " + id, e);
+        }
     }
 
     private Map<FileChunk, File> processChunks(List<FileChunk> chunks, File parent) {

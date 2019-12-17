@@ -16,6 +16,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -23,8 +24,8 @@ import java.util.stream.Collectors;
 
 import static com.uddernetworks.drivestore.utility.Utility.humanReadableByteCountSI;
 
-@CommandLine.Command(name = "example", mixinStandardHelpOptions = true, version = "1.0.0-BETA", customSynopsis = {
-        "(-u=<file>... | -d=<name/id>... |  -r=<name/id>...) [-hlV]"
+@CommandLine.Command(name = "example", mixinStandardHelpOptions = true, version = "DriveStore 1.0.0", customSynopsis = {
+        "([-c] -u=<file>... | -d=<name/id>... |  -r=<name/id>...) [-hlV]"
 })
 public class CommandHandler implements Runnable {
 
@@ -34,11 +35,11 @@ public class CommandHandler implements Runnable {
 
     private final DocStore docStore;
 
-    @ArgGroup(multiplicity = "1")
-    RequiresParam param;
-
     @Option(names = {"-l", "--list"}, description = "Lists the uploaded files in Google Sheets")
     boolean list;
+
+    @ArgGroup(multiplicity = "0..1")
+    RequiresParam param;
 
     public CommandHandler(DocStore docStore) {
         this.docStore = docStore;
@@ -46,14 +47,22 @@ public class CommandHandler implements Runnable {
 
     static class RequiresParam {
 
-        @Option(names = {"-u", "--upload"}, arity = "1..*", description = "Upload the local file", paramLabel = "<file>")
-        File[] upload;
+        @ArgGroup(exclusive = false, multiplicity = "1")
+        Upload upload;
 
         @Option(names = {"-d", "--download"}, arity = "1..*", description = "Download the remote file", paramLabel = "<name>")
         String[] download;
 
-        @Option(names = {"-r", "--remove"}, arity = "1..*", description = "Remove the remote file", paramLabel = "<name>")
+        @Option(names = {"-r", "--remove"}, arity = "1..*", description = "Permanently removes the remote file", paramLabel = "<id>")
         List<String> remove;
+
+        static class Upload {
+            @Option(names = {"-c", "--compress"}, description = "Compressed before uploading, currently uses Zip format")
+            boolean compression;
+
+            @Option(names = {"-u", "--upload"}, arity = "1..*", description = "Upload the local file", paramLabel = "<file>")
+            File[] files;
+        }
     }
 
     @Override
@@ -104,10 +113,11 @@ public class CommandHandler implements Runnable {
 
     private void upload() {
         long start = System.currentTimeMillis();
-        for (var file : param.upload) {
+        var upload = param.upload;
+        for (var file : upload.files) {
             uploadFile(file);
         }
-        LOGGER.info("Finished the uploading of {} file{} in {}ms", param.upload, param.upload.length == 1 ? "" : "s", System.currentTimeMillis() - start);
+        LOGGER.info("Finished the uploading of {} file{} in {}ms", upload.files.length, upload.files.length == 1 ? "" : "s", System.currentTimeMillis() - start);
     }
 
     private void uploadFile(File file) {
@@ -124,7 +134,7 @@ public class CommandHandler implements Runnable {
             long start = System.currentTimeMillis();
             var name = FilenameUtils.getName(file.getAbsolutePath());
 
-            var ups = sheetIO.uploadData(name, new FileInputStream(file).readAllBytes());
+            var ups = sheetIO.uploadData(name, param.upload.compression, new FileInputStream(file).readAllBytes());
 
             LOGGER.info("Uploaded {} in {}ms", ups.getId(), System.currentTimeMillis() - start);
         } catch (IOException e) {
@@ -171,7 +181,7 @@ public class CommandHandler implements Runnable {
     }
 
     private void remove() {
-        LOGGER.error("Removing files not implemented yet");
+        param.remove.forEach(docStore.getSheetManager().getSheetIO()::deleteData);
     }
 
     private String getSheetCount(com.google.api.services.drive.model.File file) {
