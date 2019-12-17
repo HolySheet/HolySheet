@@ -1,21 +1,17 @@
-# DocStore
+# HolySheet
 
-DocStore is a program that allows you to store arbitrary files onto Google Docs, which does not lower storage quota on Google Drive. This is inspired by [uds](https://github.com/stewartmcgown/uds), however it can only store ~710KB of data per doc due to the use of Base64, and only has CLI usage.
+HolySheet is a program that allows you to store arbitrary files onto Google Sheets, which does not lower storage quota on Google Drive. This is inspired by [uds](https://github.com/stewartmcgown/uds), however it can only store ~710KB of data per doc due to the use of Base64 and Docs limitations, and only has CLI usage.
 
-DocStore uses a custom algorithm maximize Google's 1.02M character limit on google docs by losslessly storing 64 bits per character in google docs, allowing for a theoretical limit of 8,160KB of storage per google doc, before any other compression method (Such as zipping the file). In the future this amount could theoretically be expanded, however this could cause complications as numbers above a standard Java long would be required, and could cause speed issues with bigger files.
+HolySheet uses Google Sheets, which has an undocumented maximum 25.9MB* of data capacity in my less-than-professional testing. A modified Base91 algorithm is also used to efficiently convert arbitrary files into text to work with Sheets. Compression to Zip is also offered, with other compression methods planned.
 
-The following is a breakdown of how each Google Drive character is stored:
+\* This could be more, it arbitrarily throws 500 ISE's at upload requests with more (Sometimes the limit may need to be lowered temporarily as it doesn't like some sizes sometimes)
 
-| Bytes | Representation     |
-| ----- | ------------------ |
-| 1     | Bold Toggle        |
-| 1     | Italics Toggle     |
-| 1     | Underline Toggle   |
-| 5     | Character (Mapped) |
-| 8     | Text Size          |
-| 24    | Text Color         |
-| 24    | Highlight Color    |
+Currently the program is CLI-based, with GUI in development. 
 
-And an image for graphical reference (I was bored):
+Usage:
 
-<img alt="Bit Breakdown" src="bit_breakdown.png" width="480px">
+![Usage Screenshot](https://rubbaboy.me/images/e6exbja)
+
+Remote file listing:
+
+![File listing](https://rubbaboy.me/images/6ppwqgi)

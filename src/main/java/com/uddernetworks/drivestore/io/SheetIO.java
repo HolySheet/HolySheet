@@ -9,6 +9,7 @@ import com.uddernetworks.drivestore.SheetManager;
 import com.uddernetworks.drivestore.encoding.DecodingOutputStream;
 import com.uddernetworks.drivestore.encoding.EncodingOutputStream;
 import com.uddernetworks.drivestore.utility.CompressionUtils;
+import com.uddernetworks.drivestore.utility.Utility;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Scanner;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import static com.uddernetworks.drivestore.utility.Utility.round;
@@ -133,9 +135,47 @@ public class SheetIO {
 
         LOGGER.info("Processing {} chunks", chunks.size());
 
-        processChunks(chunks, parent);
+        processChunks(chunks, parent, title, encoded.getLength());
 
         return parent;
+    }
+
+    private Map<FileChunk, File> processChunks(List<FileChunk> chunks, File parent, String title, long size) {
+        var index = new AtomicInteger();
+        var map = chunks.stream().collect(Collectors.toMap(c -> c, c -> {
+            printProgress(title, c.getBytes().length, size, index.getAndIncrement(), chunks.size());
+            return processChunk(c, parent);
+        }));
+        printProgress(title, size, size, chunks.size(), chunks.size());
+        return map;
+    }
+
+    private void printProgress(String title, long currSize, long totalSize, int index, int total) {
+        System.out.println(Utility.progressBar("Uploading " + title, humanReadableByteCountSI(currSize) + "/" + humanReadableByteCountSI(totalSize), 40,  index/ (double) total));
+    }
+
+    private File processChunk(FileChunk chunk, File parent) {
+        try {
+            // Stagger uploads STAGGER_MS ms
+//            sleep(chunk.getIndex() * STAGGER_MS);
+
+            LOGGER.info("Processing chunk #{} ({})", chunk.getIndex(), humanReadableByteCountSI(chunk.getBytes().length));
+            var content = new ByteArrayContent("text/tab-separated-values", chunk.getBytes());
+            var request = drive.files().create(new File()
+                    .setMimeType(Mime.SHEET.getMime())
+                    .setName("chunk-" + chunk.getIndex())
+                    .setProperties(chunk.getProperties())
+                    .setParents(Collections.singletonList(parent.getId())), content)
+                    .setFields("id");
+
+            request.getMediaHttpUploader()
+                    .setChunkSize(5 * 0x100000); // 5MB (Default 10)
+            return request.execute();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        } finally {
+            LOGGER.info("Done processing #{}", chunk.getIndex());
+        }
     }
 
     public void deleteData(String id) {
@@ -180,34 +220,4 @@ public class SheetIO {
             LOGGER.error("An error occurred while deleting the file " + id, e);
         }
     }
-
-    private Map<FileChunk, File> processChunks(List<FileChunk> chunks, File parent) {
-        return chunks.stream().collect(Collectors.toMap(c -> c, c -> processChunk(c, parent)));
-    }
-
-    private File processChunk(FileChunk chunk, File parent) {
-        try {
-            // Stagger uploads STAGGER_MS ms
-//            sleep(chunk.getIndex() * STAGGER_MS);
-
-            LOGGER.info("Processing chunk #{} ({})", chunk.getIndex(), humanReadableByteCountSI(chunk.getBytes().length));
-            var content = new ByteArrayContent("text/tab-separated-values", chunk.getBytes());
-            var request = drive.files().create(new File()
-                    .setMimeType(Mime.SHEET.getMime())
-                    .setName("chunk-" + chunk.getIndex())
-                    .setProperties(chunk.getProperties())
-                    .setParents(Collections.singletonList(parent.getId())), content)
-                    .setFields("id");
-
-            request.getMediaHttpUploader()
-                    .setChunkSize(5 * 0x100000); // 5MB (Default 10)
-            return request.execute();
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        } finally {
-            LOGGER.info("Done processing #{}", chunk.getIndex());
-        }
-    }
-
-
 }

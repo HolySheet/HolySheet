@@ -11,13 +11,18 @@ public class Utility {
     }
 
     public static String progressBar(String text, int width, double percent) {
+        return progressBar(text, "", width, percent);
+    }
+
+    public static String progressBar(String text, String beforePercent, int width, double percent) {
+        if (!beforePercent.isBlank() && !beforePercent.startsWith(" ")) beforePercent = " " + beforePercent;
         var line = text + " [";
 
         int filled = (int) Math.round(width * percent);
 
         line += "|".repeat(filled);
         line += " ".repeat(width - filled);
-        line += "] " + ((int) (percent * 100)) + "%";
+        line += "]" + beforePercent + " " + ((int) (percent * 100)) + "%";
         return line;
     }
 
