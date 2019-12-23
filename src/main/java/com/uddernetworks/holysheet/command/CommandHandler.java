@@ -1,7 +1,8 @@
-package com.uddernetworks.drivestore.command;
+package com.uddernetworks.holysheet.command;
 
-import com.uddernetworks.drivestore.DocStore;
-import com.uddernetworks.drivestore.console.ConsoleTableBuilder;
+import com.uddernetworks.holysheet.DocStore;
+import com.uddernetworks.holysheet.console.ConsoleTableBuilder;
+import com.uddernetworks.holysheet.utility.Utility;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -16,13 +17,12 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import static com.uddernetworks.drivestore.utility.Utility.humanReadableByteCountSI;
+import static com.uddernetworks.holysheet.utility.Utility.humanReadableByteCountSI;
 
 @CommandLine.Command(name = "example", mixinStandardHelpOptions = true, version = "DriveStore 1.0.0", customSynopsis = {
         "([-c] -u=<file>... | -d=<name/id>... |  -r=<name/id>...) [-hlV]"
@@ -37,6 +37,9 @@ public class CommandHandler implements Runnable {
 
     @Option(names = {"-l", "--list"}, description = "Lists the uploaded files in Google Sheets")
     boolean list;
+
+    @Option(names = {"-s", "--payload"}, description = "Starts communication payload on the given port, used to interface with other apps")
+    int socket = -1;
 
     @ArgGroup(multiplicity = "0..1")
     RequiresParam param;
@@ -68,6 +71,12 @@ public class CommandHandler implements Runnable {
     @Override
     public void run() {
         docStore.init();
+
+        if (socket > 0) {
+            docStore.getSocketCommunication().start();
+            Utility.sleep(Long.MAX_VALUE);
+            return;
+        }
 
         if (list) {
             list();

@@ -1,4 +1,4 @@
-package com.uddernetworks.drivestore.docs;
+package com.uddernetworks.holysheet.docs;
 
 import com.google.api.client.googleapis.media.MediaHttpUploader;
 import com.google.api.client.googleapis.media.MediaHttpUploaderProgressListener;
@@ -7,7 +7,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 
-import static com.uddernetworks.drivestore.utility.Utility.progressBar;
+import static com.uddernetworks.holysheet.utility.Utility.progressBar;
 
 public class ProgressListener implements MediaHttpUploaderProgressListener {
 

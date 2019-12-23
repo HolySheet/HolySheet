@@ -1,8 +1,9 @@
-package com.uddernetworks.drivestore;
+package com.uddernetworks.holysheet;
 
 import com.google.api.services.drive.Drive;
 import com.google.api.services.sheets.v4.Sheets;
-import com.uddernetworks.drivestore.command.CommandHandler;
+import com.uddernetworks.holysheet.command.CommandHandler;
+import com.uddernetworks.holysheet.socket.SocketCommunication;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import picocli.CommandLine;
@@ -15,6 +16,7 @@ public class DocStore {
 
     private AuthManager authManager;
     private SheetManager sheetManager;
+    private SocketCommunication socketCommunication;
     private Drive drive;
     private Sheets sheets;
 
@@ -29,6 +31,8 @@ public class DocStore {
     public void init() {
         try {
             LOGGER.info("Initializing everything...");
+
+            socketCommunication = new SocketCommunication(this);
 
             authManager = new AuthManager();
             authManager.initialize();
@@ -48,6 +52,10 @@ public class DocStore {
 
     public SheetManager getSheetManager() {
         return sheetManager;
+    }
+
+    public SocketCommunication getSocketCommunication() {
+        return socketCommunication;
     }
 
     public Drive getDrive() {

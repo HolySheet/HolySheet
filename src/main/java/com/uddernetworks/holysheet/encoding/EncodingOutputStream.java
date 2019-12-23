@@ -1,4 +1,4 @@
-package com.uddernetworks.drivestore.encoding;
+package com.uddernetworks.holysheet.encoding;
 
 import java.io.ByteArrayOutputStream;
 import java.io.FilterOutputStream;
@@ -6,8 +6,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.uddernetworks.drivestore.encoding.DecodingOutputStream.BASE;
-import static com.uddernetworks.drivestore.encoding.DecodingOutputStream.ENCODING_TABLE;
+import static com.uddernetworks.holysheet.encoding.DecodingOutputStream.BASE;
+import static com.uddernetworks.holysheet.encoding.DecodingOutputStream.ENCODING_TABLE;
 
 /**
  * An OutputStream (Backed by a BufferArrayOutputStream) that encodes the written data to a slightly altered Base91,
