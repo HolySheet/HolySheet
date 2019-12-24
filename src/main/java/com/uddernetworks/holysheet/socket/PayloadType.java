@@ -9,13 +9,10 @@ public enum PayloadType {
     LIST_RESPONSE(2, false),
     UPLOAD_REQUEST(3, true),
     UPLOAD_STATUS_RESPONSE(4, false),
-    UPLOAD_COMPLETE_RESPONSE(5, false),
-    DOWNLOAD_REQUEST(6, true),
-    DOWNLOAD_STATUS_RESPONSE(7, false),
-    DOWNLOAD_COMPLETE_RESPONSE(8, false),
-    REMOVE_REQUEST(9, true),
-    REMOVE_STATUS_RESPONSE(10, false),
-    REMOVE_COMPLETE_RESPONSE(11, false);
+    DOWNLOAD_REQUEST(5, true),
+    DOWNLOAD_STATUS_RESPONSE(6, false),
+    REMOVE_REQUEST(7, true),
+    REMOVE_STATUS_RESPONSE(9, false);
 
     private int type;
     private boolean receivable;

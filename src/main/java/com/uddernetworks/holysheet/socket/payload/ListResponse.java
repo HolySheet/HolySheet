@@ -5,7 +5,8 @@ import com.uddernetworks.holysheet.socket.PayloadType;
 import java.util.List;
 
 /**
- * Json sent to a client with a list of files. Example json (Excluding {@link BasicPayload}) is:
+ * <pre>Client <-- Server</pre>
+ * Json sent to a client with a list of files.
  * <pre>
  *     {
  *         "items": [
@@ -20,13 +21,11 @@ import java.util.List;
  *     }
  * </pre>
  *
- * <b>items</b>: A collection of files/items retrieved.<br><br>
- * The following descriptions are in the objects <b>items</b> contains.<br>
- * <b>name</b>: The name of the file<br>
- * <b>size</b>: The size of the file in bytes<br>
- * <b>sheets</b>: The amount of sheets the file consists of<br>
- * <b>date</b>: The millisecond timestamp the file was created<br>
- * <b>id</b>: The ID of the file<br>
+ * <table>
+ * <thead>
+ * <tr><th>Key</th><th>Example Value</th><th>Description</th></tr></thead>
+ * <tbody><tr><td>items</td><td>Array of below items in an object</td><td>A collection of files/items retrieved.</td></tr><tr><td>name</td><td>String</td><td>The name of the file</td></tr><tr><td>size</td><td>Long</td><td>The size of the file in bytes</td></tr><tr><td>sheets</td><td>Integer</td><td>The amount of sheets the file consists of</td></tr><tr><td>date</td><td>Long</td><td>The millisecond timestamp the file was created</td></tr><tr><td>id</td><td>String</td><td>The sheets-generated ID of the file</td></tr></tbody>
+ * </table>
  *
  * @see PayloadType#LIST_RESPONSE
  */

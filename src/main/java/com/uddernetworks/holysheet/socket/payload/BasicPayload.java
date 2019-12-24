@@ -3,6 +3,7 @@ package com.uddernetworks.holysheet.socket.payload;
 import com.uddernetworks.holysheet.socket.PayloadType;
 
 /**
+ * <pre>Client <--> Server</pre>
  * A superclass for all json requests and responses. Example json is:
  * <pre>
  *     {
@@ -13,13 +14,11 @@ import com.uddernetworks.holysheet.socket.PayloadType;
  *     }
  * </pre>
  *
- * <b>code</b>: The response code of the payload, 1 being successful, <1 unsuccessful.<br>
- * <b>type</b>: The type of the response for non-dynamic languages like this one. Derived from the
- *      {@link com.uddernetworks.holysheet.socket.PayloadType} enum.<br>
- * <b>message</b>: Any extra details of the request/response, used for things like errors. The state of the request should not<br>
- *      depend on this text.
- * <b>state</b>: A UUID state generated for a request, and reused for the requests's
- *     response, weather it be a proper response or error. This is to ensure the correct pairing of otherwise unordered requests and responses
+ * <table>
+ * <thead>
+ * <tr><th>Key</th><th>Value</th><th>Description</th></tr></thead>
+ * <tbody><tr><td>code</td><td>Integer</td><td>The response code of the payload, 1 being successful, &lt;1 unsuccessful.</td></tr><tr><td>type</td><td>Integer</td><td>The type of the response for non-dynamic languages like this one. Derived from the <a href='https://github.com/RubbaBoy/HolySheet/blob/master/src/main/java/com/uddernetworks/holysheet/socket/PayloadType.java'>PayloadType</a> enum.</td></tr><tr><td>message</td><td>String</td><td>Any extra details of the request/response, used for things like errors. The state of the request should not depend on this text.</td></tr><tr><td>state</td><td>Untrimmed UUID</td><td>A UUID state generated for a request, and reused for the request&#39;s response, weather it be a proper response or error. This is to ensure the correct pairing of otherwise unordered requests and responses.</td></tr></tbody>
+ * </table>
  */
 public class BasicPayload {
 

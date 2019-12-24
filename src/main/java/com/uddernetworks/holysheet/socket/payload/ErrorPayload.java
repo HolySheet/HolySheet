@@ -3,8 +3,8 @@ package com.uddernetworks.holysheet.socket.payload;
 import com.uddernetworks.holysheet.socket.PayloadType;
 
 /**
+ * <pre>Client <-- Server</pre>
  * Json sent to a client wrapping {@link BasicPayload} with preset values in the event of an error with a message.
- * Example json:
  * <pre>
  *     {
  *         "code": 0,
@@ -14,10 +14,11 @@ import com.uddernetworks.holysheet.socket.PayloadType;
  *     }
  * </pre>
  *
- * <b>code</b>: Code of 0, indicating an error has occurred<br>
- * <b>type</b>: The {@link PayloadType#ERROR} type<br>
- * <b>message</b>: Displayable error message, if known<br>
- * <b>stacktrace</b>: Stacktrace of error
+ * <table>
+ * <thead>
+ * <tr><th>Key</th><th>Value</th><th>Description</th></tr></thead>
+ * <tbody><tr><td>code</td><td><code>0</code></td><td>Code of 0, indicating an error has occurred</td></tr><tr><td>type</td><td><code>0</code></td><td>The <a href='https://github.com/RubbaBoy/HolySheet/blob/master/src/main/java/com/uddernetworks/holysheet/socket/PayloadType.java#L7'>PayloadType#ERROR</a> type</td></tr><tr><td>message</td><td>String</td><td>Displayable error message, if known</td></tr><tr><td>stacktrace</td><td>String</td><td>Stacktrace of error</td></tr></tbody>
+ * </table>
  *
  * @see PayloadType#ERROR
  */
