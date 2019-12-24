@@ -27,13 +27,16 @@ import java.util.List;
  * <b>sheets</b>: The amount of sheets the file consists of<br>
  * <b>date</b>: The millisecond timestamp the file was created<br>
  * <b>id</b>: The ID of the file<br>
+ *
+ * @see PayloadType#LIST_RESPONSE
  */
 public class ListResponse extends BasicPayload {
 
     private List<ListItem> items;
 
-    public ListResponse(int code, String message) {
-        super(code, PayloadType.LIST, message);
+    public ListResponse(int code, String message, String state, List<ListItem> items) {
+        super(code, PayloadType.LIST_RESPONSE, message, state);
+        this.items = items;
     }
 
     public List<ListItem> getItems() {
@@ -46,6 +49,14 @@ public class ListResponse extends BasicPayload {
         private int sheets;
         private long date;
         private String id;
+
+        public ListItem(String name, long size, int sheets, long date, String id) {
+            this.name = name;
+            this.size = size;
+            this.sheets = sheets;
+            this.date = date;
+            this.id = id;
+        }
 
         @Override
         public String toString() {

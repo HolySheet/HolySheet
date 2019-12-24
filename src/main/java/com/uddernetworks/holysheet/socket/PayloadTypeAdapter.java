@@ -10,10 +10,7 @@ public class PayloadTypeAdapter extends TypeAdapter<PayloadType> {
 
     @Override
     public void write(JsonWriter out, PayloadType value) throws IOException {
-        out.beginObject()
-                .name("type")
-                .value(value.getType())
-                .endObject();
+        out.value(value.getType());
     }
 
     @Override
