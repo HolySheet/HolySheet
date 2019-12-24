@@ -8,13 +8,10 @@ When not running in CLI mode, HolySheet has the ability to communicate to other 
 - [ListResponse](#ListResponse-2)
 - [UploadRequest](#UploadRequest-3)
 - [UploadStatusResponse](#UploadStatusResponse-4)
-- [UploadCompleteResponse](#UploadCompleteResponse-5)
-- [DownloadRequest](#DownloadRequest-6)
-- [DownloadStatusResponse](#DownloadStatusResponse-7)
-- [DownloadCompleteResponse](#DownloadCompleteResponse-8)
-- [RemoveRequest](#RemoveRequest-9)
-- [RemoveStatusResponse](#RemoveStatusResponse-10)
-- [RemoveCompleteResponse](#RemoveCompleteResponse-11)
+- [DownloadRequest](#DownloadRequest-5)
+- [DownloadStatusResponse](#DownloadStatusResponse-6)
+- [RemoveRequest](#RemoveRequest-7)
+- [RemoveStatusResponse](#RemoveStatusResponse-8)
 
 The following section is an example of how the protocol specification will be displayed:
 
@@ -27,14 +24,16 @@ A description of the protocol. Above shows what direction the request may go in.
 ```json
 {
     "one": "value1",
-    "two": "value2"
+    "two": 1,
+    "three": "dog"
 }
 ```
 
-| Key  | Example Value | Description   |
-| ---- | ------------- | ------------- |
-| one  | value1        | What one does |
-| two  | value2        | What two does |
+| Key   | Value       | Description                                                  |
+| ----- | ----------- | ------------------------------------------------------------ |
+| one   | String      | One can be any string                                        |
+| two   | Integer     | Two is some random integer                                   |
+| three | `(dog|cat)` | Three can either be "dog" or "cat". Value displayed in regex-like format. |
 
 
 
@@ -43,7 +42,7 @@ A description of the protocol. Above shows what direction the request may go in.
 
 `Client <--> Server`
 
-All requests are JSON, and have a few shared tags among all requests in the BasicPayload. **In future examples, these will be hidden unless stated otherwise**.
+All requests are JSON, and have a few shared tags among all requests in the BasicPayload, meaning this is the parent to all requests in any direction. If these values can't be found, the request should be ignored. **In future examples, these will be hidden unless stated otherwise**.
 
 ```json
 {
@@ -54,12 +53,12 @@ All requests are JSON, and have a few shared tags among all requests in the Basi
 }
 ```
 
-| Key     | Example Value                          | Description                                                  |
-| ------- | -------------------------------------- | ------------------------------------------------------------ |
-| code    | 1                                      | The response code of the payload, 1 being successful, <1 unsuccessful. |
-| type    | 1                                      | The type of the response for non-dynamic languages like this one. Derived from the [PayloadType](https://github.com/RubbaBoy/HolySheet/blob/master/src/main/java/com/uddernetworks/holysheet/socket/PayloadType.java) enum. |
-| message | "Success"                              | Any extra details of the request/response, used for things like errors. The state of the request should not depend on this text. |
-| state   | "0317d1f0-6053-4cce-89ba-9e896784820a" | A UUID state generated for a request, and reused for the request's response, weather it be a proper response or error. This is to ensure the correct pairing of otherwise unordered requests and responses. |
+| Key     | Value          | Description                                                  |
+| ------- | -------------- | ------------------------------------------------------------ |
+| code    | Integer        | The response code of the payload, 1 being successful, <1 unsuccessful. |
+| type    | Integer        | The type of the response for non-dynamic languages like this one. Derived from the [PayloadType](https://github.com/RubbaBoy/HolySheet/blob/master/src/main/java/com/uddernetworks/holysheet/socket/PayloadType.java) enum. |
+| message | String         | Any extra details of the request/response, used for things like errors. The state of the request should not depend on this text. |
+| state   | Untrimmed UUID | A UUID state generated for a request, and reused for the request's response, weather it be a proper response or error. This is to ensure the correct pairing of otherwise unordered requests and responses. |
 
 
 
@@ -78,12 +77,12 @@ Sent when the server has some kind of issue generating a response. Following JSO
 }
 ```
 
-| Key        | Example Value           | Description                                                  |
-| ---------- | ----------------------- | ------------------------------------------------------------ |
-| code       | 0                       | Code of 0, indicating an error has occurred                  |
-| type       | 0                       | The [PayloadType#ERROR](https://github.com/RubbaBoy/HolySheet/blob/master/src/main/java/com/uddernetworks/holysheet/socket/PayloadType.java#L7) type |
-| message    | "An error has occurred" | Displayable error message, if known                          |
-| stacktrace | "...stacktrace..."      | Stacktrace of error                                          |
+| Key        | Value  | Description                                                  |
+| ---------- | ------ | ------------------------------------------------------------ |
+| code       | `0`    | Code of 0, indicating an error has occurred                  |
+| type       | `0`    | The [PayloadType#ERROR](https://github.com/RubbaBoy/HolySheet/blob/master/src/main/java/com/uddernetworks/holysheet/socket/PayloadType.java#L7) type |
+| message    | String | Displayable error message, if known                          |
+| stacktrace | String | Stacktrace of error                                          |
 
 
 
@@ -99,9 +98,9 @@ Sent to the server to request the listing of files. Current protocol supports a 
 }
 ```
 
-| Key   | Example Value | Description                                                 |
-| ----- | ------------- | ----------------------------------------------------------- |
-| query | "Query"       | A string payload to search files to list. This can be null. |
+| Key   | Value  | Description                                                 |
+| ----- | ------ | ----------------------------------------------------------- |
+| query | String | A string payload to search files to list. This can be null. |
 
 
 
@@ -128,64 +127,127 @@ Contains a list of files and their basic information.
 | Key    | Example Value                     | Description                                    |
 | ------ | --------------------------------- | ---------------------------------------------- |
 | items  | Array of below items in an object | A collection of files/items retrieved.         |
-| name   | "test.txt"                        | The name of the file                           |
-| size   | 54321                             | The size of the file in bytes                  |
-| sheets | 6                                 | The amount of sheets the file consists of      |
-| date   | 1577200502088                     | The millisecond timestamp the file was created |
-| id     | "abcdefghijklmnopqrstuvwxyz"      | The ID of the file                             |
+| name   | String                            | The name of the file                           |
+| size   | Long                              | The size of the file in bytes                  |
+| sheets | Integer                           | The amount of sheets the file consists of      |
+| date   | Long                              | The millisecond timestamp the file was created |
+| id     | String                            | The sheets-generated ID of the file            |
 
 
 
 ## UploadRequest (3)
 
-Client --> Server
+`Client --> Server`
 
 A request to upload a given file.
 
+```json
+{
+    "file": "file:///c:/file.txt",
+    "upload": "multipart",
+    "compression": "zip"
+}
+```
+
+| Key         | Value                | Description                                                  |
+| ----------- | -------------------- | ------------------------------------------------------------ |
+| file        | URL                  | The URL of the file to upload                                |
+| upload      | `(multipart|direct)` | Toggles multipart or direct uploading (Multipart recommended) |
+| compression | `(none|zip)`         | The compression algorithm to use, if any.                    |
+
+
+
 ## UploadStatusResponse (4)
 
-Client <-- Server
+`Client <-- Server`
 
 A status update saying how far along an upload is.
 
-## UploadCompleteResponse (5)
+```json
+{
+    "status": "UPLOADING",
+    "percentage": "0.856"
+}
+```
 
-Client <-- Server
+| Key        | Value                          | Description                                                  |
+| ---------- | ------------------------------ | ------------------------------------------------------------ |
+| status     | `(PENDING|UPLOADING|COMPLETE)` | The status of the upload                                     |
+| percentage | Double                         | The 0-1 percentage of the file upload. If pending, this value should be 0. |
 
-Sent when an upload has been completed.
 
-## DownloadRequest (6)
 
-Client --> Server
+## DownloadRequest (5)
+
+`Client --> Server`
 
 A request to download the given remote file from Sheets to a destination.
 
-## DownloadStatusResponse (7)
+```json
+{
+    "id": "1KLruEf0d8GJgf7JGaYUiNnW_Pe0Zumvq"
+}
+```
 
-Client <-- Server
+| Key  | Value  | Description                                     |
+| ---- | ------ | ----------------------------------------------- |
+| id   | String | The Sheets-generated ID of the file to download |
+
+
+
+## DownloadStatusResponse (6)
+
+`Client <-- Server`
 
 A status update saying how far along a download is.
 
-## DownloadCompleteResponse (8)
+```json
+{
+    "status": "DOWNLOADING",
+    "percentage": "0.856"
+}
+```
 
-Client <-- Server
+| Key        | Value                            | Description                                                  |
+| ---------- | -------------------------------- | ------------------------------------------------------------ |
+| status     | `(PENDING|DOWNLOADING|COMPLETE)` | The status of the download                                   |
+| percentage | Double                           | The 0-1 percentage of the file download. If pending, this value should be 0. |
 
-Sent when a download has been completed.
 
-## RemoveRequest (9)
 
-Client --> Server
+## RemoveRequest (7)
+
+`Client --> Server`
 
 A request to remove the given remote Sheets file.
 
-## RemoveStatusResponse (10)
+```json
+{
+    "id": "1KLruEf0d8GJgf7JGaYUiNnW_Pe0Zumvq"
+}
+```
 
-Client <-- Server
+| Key  | Value  | Description                                   |
+| ---- | ------ | --------------------------------------------- |
+| id   | String | The Sheets-generated ID of the file to remove |
+
+
+
+## RemoveStatusResponse (8)
+
+`Client <-- Server`
 
 A status update saying how far along a file removal is.
 
-## RemoveCompleteResponse (11)
+```json
+{
+    "status": "DOWNLOADING",
+    "percentage": "0.856"
+}
+```
 
-Client <-- Server
+| Key        | Value                            | Description                                                  |
+| ---------- | -------------------------------- | ------------------------------------------------------------ |
+| status     | `(PENDING|DOWNLOADING|COMPLETE)` | The status of the removal                                    |
+| percentage | Double                           | The 0-1 percentage of the file removal. If pending, this value should be 0. |
 
-Sent when a removal has been completed.

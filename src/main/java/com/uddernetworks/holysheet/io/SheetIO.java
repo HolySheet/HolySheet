@@ -168,6 +168,8 @@ public class SheetIO {
                     .setParents(Collections.singletonList(parent.getId())), content)
                     .setFields("id");
 
+            // TODO: Enable/disable multipart and direct uploading
+//            request.getMediaHttpUploader().setDirectUploadEnabled()
             request.getMediaHttpUploader()
                     .setChunkSize(5 * 0x100000); // 5MB (Default 10)
             return request.execute();
