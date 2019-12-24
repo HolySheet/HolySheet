@@ -32,14 +32,14 @@ public class DocStore {
         try {
             LOGGER.info("Initializing everything...");
 
-            socketCommunication = new SocketCommunication(this);
-
             authManager = new AuthManager();
             authManager.initialize();
             drive = authManager.getDrive();
             sheets = authManager.getSheets();
 
             sheetManager = new SheetManager(this);
+            socketCommunication = new SocketCommunication(this);
+
             sheetManager.init();
         } catch (GeneralSecurityException | IOException e) {
             LOGGER.error("Error initializing", e);

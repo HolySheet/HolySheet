@@ -3,10 +3,13 @@ package com.uddernetworks.holysheet.socket;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.uddernetworks.holysheet.DocStore;
+import com.uddernetworks.holysheet.SheetManager;
+import com.uddernetworks.holysheet.command.CommandHandler;
 import com.uddernetworks.holysheet.socket.payload.BasicPayload;
 import com.uddernetworks.holysheet.socket.payload.ErrorPayload;
 import com.uddernetworks.holysheet.socket.payload.ListRequest;
 import com.uddernetworks.holysheet.socket.payload.ListResponse;
+import com.uddernetworks.holysheet.socket.payload.ListResponse.ListItem;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,6 +25,7 @@ import java.util.List;
 import java.util.Scanner;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
+import java.util.stream.Collectors;
 
 public class SocketCommunication {
 
@@ -35,12 +39,14 @@ public class SocketCommunication {
     private static final int PORT = 4567;
 
     private final DocStore docStore;
+    private final SheetManager sheetManager;
     private ServerSocket serverSocket;
 
     private List<BiConsumer<Socket, String>> receivers = Collections.synchronizedList(new ArrayList<>());
 
     public SocketCommunication(DocStore docStore) {
         this.docStore = docStore;
+        this.sheetManager = docStore.getSheetManager();
     }
 
     public void start() {
@@ -104,9 +110,15 @@ public class SocketCommunication {
 
                         LOGGER.info("Got list request. Query: {}", listRequest.getQuery());
 
-                        var listResponse = new ListResponse(1, "Success", state, Collections.singletonList(
-                                new ListResponse.ListItem("test.txt", 123, 6, System.currentTimeMillis(), "abcdefg")));
-                        sendData(socket, listResponse);
+                        List<ListItem> uploads;
+                        synchronized (sheetManager) {
+                            uploads = sheetManager.listUploads()
+                                    .stream()
+                                    .map(file -> new ListItem(file.getName(), CommandHandler.getSize(file), CommandHandler.getSheetCount(file), file.getModifiedTime().getValue(), file.getId()))
+                                    .collect(Collectors.toUnmodifiableList());
+                        }
+
+                        sendData(socket, new ListResponse(1, "Success", state, uploads));
                         break;
                     default:
                         LOGGER.error("Unsupported type: {}", basicPayload.getType().name());

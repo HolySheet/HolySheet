@@ -114,7 +114,7 @@ public class CommandHandler implements Runnable {
                 .map(file -> List.of(
                         file.getName(),
                         humanReadableByteCountSI(Long.parseLong(file.getProperties().get("size"))),
-                        getSheetCount(file),
+                        String.valueOf(getSheetCount(file)),
                         DATE_FORMAT.format(new Date(file.getModifiedTime().getValue())),
                         file.getId()
                 )).collect(Collectors.toUnmodifiableList())));
@@ -193,12 +193,23 @@ public class CommandHandler implements Runnable {
         param.remove.forEach(docStore.getSheetManager().getSheetIO()::deleteData);
     }
 
-    private String getSheetCount(com.google.api.services.drive.model.File file) {
+    public static int getSheetCount(com.google.api.services.drive.model.File file) {
+        System.out.println(file.getProperties());
         var string = file.getProperties().get("sheets");
         if (!StringUtils.isNumeric(string)) {
-            return "0";
+            return 0;
         }
 
-        return String.valueOf(Integer.parseInt(string));
+        return Integer.parseInt(string);
+    }
+
+    public static int getSize(com.google.api.services.drive.model.File file) {
+        System.out.println(file.getProperties());
+        var string = file.getProperties().get("size");
+        if (!StringUtils.isNumeric(string)) {
+            return 0;
+        }
+
+        return Integer.parseInt(string);
     }
 }

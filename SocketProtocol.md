@@ -166,7 +166,7 @@ A status update saying how far along an upload is.
 ```json
 {
     "status": "UPLOADING",
-    "percentage": "0.856"
+    "percentage": 0.856
 }
 ```
 
