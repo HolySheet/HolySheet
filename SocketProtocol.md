@@ -33,7 +33,7 @@ A description of the protocol. Above shows what direction the request may go in.
 | ----- | ----------- | ------------------------------------------------------------ |
 | one   | String      | One can be any string                                        |
 | two   | Integer     | Two is some random integer                                   |
-| three | `(dog|cat)` | Three can either be "dog" or "cat". Value displayed in regex-like format. |
+| three | `(dog\|cat)` | Three can either be "dog" or "cat". Value displayed in regex-like format. |
 
 
 
@@ -149,11 +149,11 @@ A request to upload a given file.
 }
 ```
 
-| Key         | Value                | Description                                                  |
-| ----------- | -------------------- | ------------------------------------------------------------ |
-| file        | URL                  | The URL of the file to upload                                |
-| upload      | `(multipart|direct)` | Toggles multipart or direct uploading (Multipart recommended) |
-| compression | `(none|zip)`         | The compression algorithm to use, if any.                    |
+| Key         | Value                 | Description                                                  |
+| ----------- | --------------------- | ------------------------------------------------------------ |
+| file        | URL                   | The URL of the file to upload                                |
+| upload      | `(multipart\|direct)` | Toggles multipart or direct uploading (Multipart recommended) |
+| compression | `(none\|zip)`         | The compression algorithm to use, if any.                    |
 
 
 
@@ -170,10 +170,10 @@ A status update saying how far along an upload is.
 }
 ```
 
-| Key        | Value                          | Description                                                  |
-| ---------- | ------------------------------ | ------------------------------------------------------------ |
-| status     | `(PENDING|UPLOADING|COMPLETE)` | The status of the upload                                     |
-| percentage | Double                         | The 0-1 percentage of the file upload. If pending, this value should be 0. |
+| Key        | Value                            | Description                                                  |
+| ---------- | -------------------------------- | ------------------------------------------------------------ |
+| status     | `(PENDING\|UPLOADING\|COMPLETE)` | The status of the upload                                     |
+| percentage | Double                           | The 0-1 percentage of the file upload. If pending, this value should be 0. |
 
 
 
@@ -208,10 +208,10 @@ A status update saying how far along a download is.
 }
 ```
 
-| Key        | Value                            | Description                                                  |
-| ---------- | -------------------------------- | ------------------------------------------------------------ |
-| status     | `(PENDING|DOWNLOADING|COMPLETE)` | The status of the download                                   |
-| percentage | Double                           | The 0-1 percentage of the file download. If pending, this value should be 0. |
+| Key        | Value                              | Description                                                  |
+| ---------- | ---------------------------------- | ------------------------------------------------------------ |
+| status     | `(PENDING\|DOWNLOADING\|COMPLETE)` | The status of the download                                   |
+| percentage | Double                             | The 0-1 percentage of the file download. If pending, this value should be 0. |
 
 
 
@@ -241,13 +241,13 @@ A status update saying how far along a file removal is.
 
 ```json
 {
-    "status": "DOWNLOADING",
+    "status": "REMOVING",
     "percentage": "0.856"
 }
 ```
 
-| Key        | Value                            | Description                                                  |
-| ---------- | -------------------------------- | ------------------------------------------------------------ |
-| status     | `(PENDING|DOWNLOADING|COMPLETE)` | The status of the removal                                    |
-| percentage | Double                           | The 0-1 percentage of the file removal. If pending, this value should be 0. |
+| Key        | Value                           | Description                                                  |
+| ---------- | ------------------------------- | ------------------------------------------------------------ |
+| status     | `(PENDING\|REMOVING\|COMPLETE)` | The status of the removal                                    |
+| percentage | Double                          | The 0-1 percentage of the file removal. If pending, this value should be 0. |
 
