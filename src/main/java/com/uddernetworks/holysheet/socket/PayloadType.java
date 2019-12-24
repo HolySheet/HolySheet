@@ -6,7 +6,16 @@ import java.util.Optional;
 public enum PayloadType {
     ERROR(0, false),
     LIST_REQUEST(1, true),
-    LIST_RESPONSE(2, false);
+    LIST_RESPONSE(2, false),
+    UPLOAD_REQUEST(3, true),
+    UPLOAD_STATUS_RESPONSE(4, false),
+    UPLOAD_COMPLETE_RESPONSE(5, false),
+    DOWNLOAD_REQUEST(6, true),
+    DOWNLOAD_STATUS_RESPONSE(7, false),
+    DOWNLOAD_COMPLETE_RESPONSE(8, false),
+    REMOVE_REQUEST(9, true),
+    REMOVE_STATUS_RESPONSE(10, false),
+    REMOVE_COMPLETE_RESPONSE(11, false);
 
     private int type;
     private boolean receivable;

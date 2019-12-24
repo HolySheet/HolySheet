@@ -38,7 +38,7 @@ public class CommandHandler implements Runnable {
     @Option(names = {"-l", "--list"}, description = "Lists the uploaded files in Google Sheets")
     boolean list;
 
-    @Option(names = {"-s", "--payload"}, description = "Starts communication payload on the given port, used to interface with other apps")
+    @Option(names = {"-s", "--socket"}, description = "Starts communication socket on the given port, used to interface with other apps")
     int socket = -1;
 
     @ArgGroup(multiplicity = "0..1")
