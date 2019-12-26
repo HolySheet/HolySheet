@@ -7,7 +7,8 @@ group 'com.uddernetworks.holysheet'
 version '1.0.0'
 
 sourceCompatibility = 11
-mainClassName = 'com.uddernetworks.holysheet.DocStore'
+//mainClassName = 'com.uddernetworks.holysheet.DocStore'
+mainClassName = 'com.uddernetworks.holysheet.socket.jshell.JShellRemote'
 
 repositories {
     mavenCentral()
@@ -39,6 +40,7 @@ test {
 
 run{
     standardInput = System.in
+    jvmArgs("--add-opens", "jdk.jshell/jdk.jshell=ALL-UNNAMED")
 }
 
 compileJava {

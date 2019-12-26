@@ -12,6 +12,9 @@ When not running in CLI mode, HolySheet has the ability to communicate to other 
 - [DownloadStatusResponse](#DownloadStatusResponse-6)
 - [RemoveRequest](#RemoveRequest-7)
 - [RemoveStatusResponse](#RemoveStatusResponse-8)
+- [CodeExecutionRequest](#CodeExecutionRequest-9)
+- [CodeExecutionResponse](#CodeExecutionResponse-10)
+- [CodeExecutionCallbackResponse](#CodeExecutionCallbackResponse-11)
 
 The following section is an example of how the protocol specification will be displayed:
 
@@ -250,4 +253,113 @@ A status update saying how far along a file removal is.
 | ---------- | ------------------------------- | ------------------------------------------------------------ |
 | status     | `(PENDING\|REMOVING\|COMPLETE)` | The status of the removal                                    |
 | percentage | Double                          | The 0-1 percentage of the file removal. If pending, this value should be 0. |
+
+
+
+## CodeExecutionRequest (9)
+
+`Client --> Server`
+
+Send to request the arbitrary execution of code on the Java program. This code is ran in a static class and on the same JVM, having access to specific static "access point" variables, used for smaller things it may not be worth (Or too complex) to make a whole new request for, such as file selection. This supports callbacks as well, which will be demonstrated in [CodeExecutionCallbackResponse](#CodeExecutionCallbackResponse-11). Code is invoked via JShell.
+
+```json
+{
+    "code": "Map.of(\"one\", 1)"
+}
+```
+
+| Key  | Value  | Description                                                  |
+| ---- | ------ | ------------------------------------------------------------ |
+| code | String | A snippet of Java code, exactly one complete snippet of source code, that is, one expression,statement, variable declaration, method declaration, class declaration,or import. - [JShell](https://docs.oracle.com/en/java/javase/11/docs/api/jdk.jshell/jdk/jshell/JShell.html#eval(java.lang.String)) |
+
+
+
+## CodeExecutionResponse (10)
+
+`Client <-- Server`
+
+A response with any variables (automatically or manually) created, along with a dump of all current or previous variables. In the future, there will be an option in the request to only dump certain ones, however this is not available in the early stages of the protocol. The below JSON sample shows the result for the above code executed in [CodeExecutionRequest](#CodeExecutionRequest-9).
+
+```json
+{
+  "snippetResult": [
+    "$1"
+  ],
+  "variables": [
+    {
+      "name": "$1",
+      "type": "java.util.ImmutableCollections.Map1",
+      "object": {
+        "one": 1
+      }
+    }
+  ]
+}
+```
+
+| Key           | Value      | Description                                                  |
+| ------------- | ---------- | ------------------------------------------------------------ |
+| snippetResult | String[]   | A list of implicit or explicitly created variables in the snippet. |
+| variables     | Variable[] | A list of all variables created or used in the current or past snippets. The Variable object is outlined in the following 3 properties. |
+| name          | String     | The name of the variable                                     |
+| type          | String     | The canonical Java class name of the object                  |
+| object        | Object     | The Gson-serialized Java object. This is not always small or easy to manage, so it is important to limit variables and general use of this request. |
+
+
+
+## CodeExecutionCallbackResponse (11)
+
+`Client <-- Server`
+
+A response sent to the client an arbitrary amount of times, an arbitrary amount of time after a given [CodeExecutionRequest](#CodeExecutionRequest-9). These callbacks are defined in CodeExecutionRequests, and allow for very dynamic variable fetching/code execution. The following snippet is a standard JSON response, and after the property table will be the Java code sent in the CodeExecutionRequest to generate this output. With this code snippet, this callback response is sent 5 seconds after the initial code request.
+
+```json
+{
+  "callbackState": "030ccb35-8e0b-4c13-a0a1-9a6347ad8849",
+  "snippetResult": [
+    "theTime",
+    "theTimeTen"
+  ],
+  "variables": [
+    {
+      "name": "theTime",
+      "type": "java.lang.Long",
+      "object": 1577394471130
+    },
+    {
+      "name": "theTimeHalved",
+      "type": "java.lang.Long",
+      "object": 788697235565
+    }
+  ]
+}
+```
+
+| Key           | Value      | Description                                                  |
+| ------------- | ---------- | ------------------------------------------------------------ |
+| callbackState | String     | An untrimmed UUID (Set in the code) to identify the callback. This is separate from the standard `state` property. |
+| snippetResult | String[]   | A list of variable names passed to the callback, sent by the client |
+| variables     | Variable[] | A list of all variables listed in the snippetResult. The Variable object is outlined in the following 3 properties. |
+| name          | String     | The name of the variable                                     |
+| type          | String     | The canonical Java class name of the object                  |
+| object        | Object     | The Gson-serialized Java object. This is not always small or easy to manage, so it is important to limit variables and general use of this request. |
+
+The code used in order to create callbacks like these are in the following format:
+
+```java
+// callback UUID variable1 variable2 variable3...
+```
+
+This comment will be converted into the proper code that will be executed on the same line as the comment. The following code (Sent by the [CodeExecutionRequest](#CodeExecutionRequest-9)) was used to produce the above request. Due to the `Thread.sleep`, the callback is sent after 5 seconds with the local variables `theTime` and `theTimeHalved` sent over as well.
+
+```java
+CompletableFuture.runAsync(() -> {
+    try {
+        Thread.sleep(5000);
+    } catch (InterruptedException ignored) {}
+    long theTime = System.currentTimeMillis();
+    long theTimeHalved = System.currentTimeMillis() / 2;
+    // callback 030ccb35-8e0b-4c13-a0a1-9a6347ad8849 theTime theTimeHalved
+});
+```
 
