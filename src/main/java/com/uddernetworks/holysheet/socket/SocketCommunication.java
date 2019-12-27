@@ -142,8 +142,10 @@ public class SocketCommunication {
 
                         docStore.getjShellRemote().queueRequest(codeExecutionRequest, response ->
                                 sendData(socket, response));
+                        break;
                     default:
                         LOGGER.error("Unsupported type: {}", basicPayload.getType().name());
+                        sendData(socket, GSON.toJson(new ErrorPayload("Unsupported type: " + basicPayload.getType().name(), basicPayload.getState(), ExceptionUtils.getStackTrace(new RuntimeException()))));
                         break;
                 }
             } catch (Exception e) { // Catching Exception only for error reporting back to GUI/Other client

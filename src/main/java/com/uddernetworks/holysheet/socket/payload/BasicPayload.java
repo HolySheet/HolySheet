@@ -6,12 +6,12 @@ import com.uddernetworks.holysheet.socket.PayloadType;
  * <pre>Client <--> Server</pre>
  * A superclass for all json requests and responses. Example json is:
  * <pre>
- *     {
- *         "code": 1,
- *         "type": 1,
- *         "message": "Success",
- *         "state": "0317d1f0-6053-4cce-89ba-9e896784820a"
- *     }
+ * {
+ *     "code": 1,
+ *     "type": 1,
+ *     "message": "Success",
+ *     "state": "0317d1f0-6053-4cce-89ba-9e896784820a"
+ * }
  * </pre>
  *
  * <table>

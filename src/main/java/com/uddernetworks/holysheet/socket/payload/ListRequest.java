@@ -7,9 +7,9 @@ import com.uddernetworks.holysheet.socket.PayloadType;
  * Json sent to the Java server to request the listing of files, with an
  * optional search query.
  * <pre>
- *     {
- *         "query": "Query"
- *     }
+ * {
+ *     "query": "Query"
+ * }
  * </pre>
  *
  * <table>

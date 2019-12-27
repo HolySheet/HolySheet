@@ -6,9 +6,9 @@ import com.uddernetworks.holysheet.socket.PayloadType;
  * <pre>Client --> Server</pre>
  * A request to download the given remote file from Sheets to a destination.
  * <pre>
- *     {
- *         "id": "1KLruEf0d8GJgf7JGaYUiNnW_Pe0Zumvq"
- *     }
+ * {
+ *     "id": "1KLruEf0d8GJgf7JGaYUiNnW_Pe0Zumvq"
+ * }
  * </pre>
  *
  * <table>

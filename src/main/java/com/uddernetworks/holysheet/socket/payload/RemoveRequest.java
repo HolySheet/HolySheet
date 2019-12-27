@@ -6,9 +6,9 @@ import com.uddernetworks.holysheet.socket.PayloadType;
  * <pre>Client --> Server</pre>
  * A request to remove the given remote Sheets file.
  * <pre>
- *      {
- *          "id": "1KLruEf0d8GJgf7JGaYUiNnW_Pe0Zumvq"
- *      }
+ * {
+ *     "id": "1KLruEf0d8GJgf7JGaYUiNnW_Pe0Zumvq"
+ * }
  * </pre>
  *
  * <table>

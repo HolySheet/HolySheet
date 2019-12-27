@@ -7,8 +7,8 @@ group 'com.uddernetworks.holysheet'
 version '1.0.0'
 
 sourceCompatibility = 11
-//mainClassName = 'com.uddernetworks.holysheet.DocStore'
-mainClassName = 'com.uddernetworks.holysheet.socket.jshell.JShellRemote'
+mainClassName = 'com.uddernetworks.holysheet.DocStore'
+//mainClassName = 'com.uddernetworks.holysheet.socket.jshell.JShellRemote'
 
 repositories {
     mavenCentral()

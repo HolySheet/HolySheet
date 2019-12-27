@@ -8,17 +8,17 @@ import java.util.List;
  * <pre>Client <-- Server</pre>
  * Json sent to a client with a list of files.
  * <pre>
- *     {
- *         "items": [
- *              {
- *                "name": "test.txt",
- *                "size": 42069,
- *                "sheets": 6,
- *                "date": 123456789,
- *                "id": "abcdefghijklmnopqrstuvwxyz"
- *              }
- *          ]
- *     }
+ * {
+ *     "items": [
+ *          {
+ *            "name": "test.txt",
+ *            "size": 42069,
+ *            "sheets": 6,
+ *            "date": 123456789,
+ *            "id": "abcdefghijklmnopqrstuvwxyz"
+ *          }
+ *      ]
+ * }
  * </pre>
  *
  * <table>

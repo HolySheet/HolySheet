@@ -6,11 +6,11 @@ import com.uddernetworks.holysheet.socket.PayloadType;
  * <pre>Client --> Server</pre>
  * A request to upload a given file.
  * <pre>
- *      {
- *          "file": "file:///c:/file.txt",
- *          "upload": "multipart",
- *          "compression": "zip"
- *      }
+ * {
+ *     "file": "file:///c:/file.txt",
+ *     "upload": "multipart",
+ *     "compression": "zip"
+ * }
  * </pre>
  *
  * <table>

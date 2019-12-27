@@ -8,10 +8,10 @@ import java.util.List;
  * <pre>Client <-- Server</pre>
  * A status update saying how far along an upload is.
  * <pre>
- *     {
- *          "status": "UPLOADING",
- *          "percentage": "0.856"
- *     }
+ * {
+ *      "status": "UPLOADING",
+ *      "percentage": "0.856"
+ * }
  * </pre>
  *
  * <table>

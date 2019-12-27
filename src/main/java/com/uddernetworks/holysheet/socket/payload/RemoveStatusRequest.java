@@ -6,10 +6,10 @@ import com.uddernetworks.holysheet.socket.PayloadType;
  * <pre>Client <-- Server</pre>
  * A status update saying how far along a file removal is.
  * <pre>
- *      {
- *          "status": "REMOVING",
- *          "percentage": "0.856"
- *      }
+ * {
+ *     "status": "REMOVING",
+ *     "percentage": "0.856"
+ * }
  * </pre>
  *
  * <table>

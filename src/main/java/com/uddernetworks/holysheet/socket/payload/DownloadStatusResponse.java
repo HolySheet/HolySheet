@@ -6,10 +6,10 @@ import com.uddernetworks.holysheet.socket.PayloadType;
  * <pre>Client <-- Server</pre>
  * A status update saying how far along a download is.
  * <pre>
- *      {
- *          "status": "DOWNLOADING",
- *          "percentage": "0.856"
- *      }
+ * {
+ *     "status": "DOWNLOADING",
+ *     "percentage": "0.856"
+ * }
  * </pre>
  *
  * <table>

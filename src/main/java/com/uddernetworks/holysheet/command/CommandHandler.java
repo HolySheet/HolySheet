@@ -195,7 +195,6 @@ public class CommandHandler implements Runnable {
     }
 
     public static int getSheetCount(com.google.api.services.drive.model.File file) {
-        System.out.println(file.getProperties());
         var string = file.getProperties().get("sheets");
         if (!StringUtils.isNumeric(string)) {
             return 0;
@@ -205,7 +204,6 @@ public class CommandHandler implements Runnable {
     }
 
     public static int getSize(com.google.api.services.drive.model.File file) {
-        System.out.println(file.getProperties());
         var string = file.getProperties().get("size");
         if (!StringUtils.isNumeric(string)) {
             return 0;

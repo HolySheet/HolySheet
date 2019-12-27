@@ -264,13 +264,18 @@ Send to request the arbitrary execution of code on the Java program. This code i
 
 ```json
 {
-    "code": "Map.of(\"one\", 1)"
+    "code": "Map.of(\"one\", 1)",
+    "returnVariables": [
+        "x",
+        "y"
+    ]
 }
 ```
 
-| Key  | Value  | Description                                                  |
-| ---- | ------ | ------------------------------------------------------------ |
-| code | String | A snippet of Java code, exactly one complete snippet of source code, that is, one expression,statement, variable declaration, method declaration, class declaration,or import. - [JShell](https://docs.oracle.com/en/java/javase/11/docs/api/jdk.jshell/jdk/jshell/JShell.html#eval(java.lang.String)) |
+| Key             | Value    | Description                                                  |
+| --------------- | -------- | ------------------------------------------------------------ |
+| code            | String   | A snippet of Java code, exactly one complete snippet of source code, that is, one expression,statement, variable declaration, method declaration, class declaration,or import. - [JShell](https://docs.oracle.com/en/java/javase/11/docs/api/jdk.jshell/jdk/jshell/JShell.html#eval(java.lang.String)) |
+| returnVariables | String[] | A list of extra variables to return in the response          |
 
 
 
@@ -300,7 +305,7 @@ A response with any variables (automatically or manually) created, along with a 
 | Key           | Value      | Description                                                  |
 | ------------- | ---------- | ------------------------------------------------------------ |
 | snippetResult | String[]   | A list of implicit or explicitly created variables in the snippet. |
-| variables     | Variable[] | A list of all variables created or used in the current or past snippets. The Variable object is outlined in the following 3 properties. |
+| variables     | Variable[] | A list of variables listed in the request via `returnVariables`, and in this response via `snippetResult`. The Variable object is outlined in the following 3 properties. |
 | name          | String     | The name of the variable                                     |
 | type          | String     | The canonical Java class name of the object                  |
 | object        | Object     | The Gson-serialized Java object. This is not always small or easy to manage, so it is important to limit variables and general use of this request. |
@@ -318,7 +323,7 @@ A response sent to the client an arbitrary amount of times, an arbitrary amount 
   "callbackState": "030ccb35-8e0b-4c13-a0a1-9a6347ad8849",
   "snippetResult": [
     "theTime",
-    "theTimeTen"
+    "theTimeHalved"
   ],
   "variables": [
     {

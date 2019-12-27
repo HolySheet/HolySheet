@@ -96,7 +96,7 @@ public class JShellRemote {
                 }
 
                 var request = entry.getKey();
-                var response = runCode(request.getState(), request.getInvokeCode());
+                var response = runCode(request.getState(), request.getInvokeCode(), request.getReturnVariables());
                 entry.getValue().accept(response);
             }
         });
@@ -125,7 +125,7 @@ public class JShellRemote {
         socketCommunication.sendPayload(response);
     }
 
-    public CodeExecutionResponse runCode(String state, String code) {
+    public CodeExecutionResponse runCode(String state, String code, List<String> returningVariables) {
         LOGGER.info("Preprocessing code...");
 
         var matcher = callbackPattern.matcher(code);
@@ -164,12 +164,15 @@ public class JShellRemote {
             }
         });
 
-        return new CodeExecutionResponse(1, "Success", state, retrieved, getVariables());
+        return new CodeExecutionResponse(1, "Success", state, retrieved, getVariables(retrieved, returningVariables));
     }
 
-    private List<SerializedVariable> getVariables() {
+    @SafeVarargs
+    private List<SerializedVariable> getVariables(List<String>... includeList) {
+        var include = Arrays.stream(includeList).flatMap(List::stream).collect(Collectors.toUnmodifiableSet());
         return executionControl.getFields()
                 .stream()
+                .filter(field -> include.contains(field.getName()))
                 .map(field -> new SerializedVariable(field.getName(), get(field)))
                 .filter(snippet -> snippet.getObject() != null)
                 .collect(Collectors.toUnmodifiableList());

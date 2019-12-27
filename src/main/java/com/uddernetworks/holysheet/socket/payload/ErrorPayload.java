@@ -6,12 +6,12 @@ import com.uddernetworks.holysheet.socket.PayloadType;
  * <pre>Client <-- Server</pre>
  * Json sent to a client wrapping {@link BasicPayload} with preset values in the event of an error with a message.
  * <pre>
- *     {
- *         "code": 0,
- *         "type": 0,
- *         "message": "An error has occurred",
- *         "stacktrace": "...stacktrace..."
- *     }
+ * {
+ *     "code": 0,
+ *     "type": 0,
+ *     "message": "An error has occurred",
+ *     "stacktrace": "...stacktrace..."
+ * }
  * </pre>
  *
  * <table>
