@@ -2,6 +2,12 @@ package com.uddernetworks.holysheet.socket.jshell;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.uddernetworks.holysheet.socket.SocketCommunication;
+import com.uddernetworks.holysheet.socket.payload.CodeExecutionCallbackResponse;
+import com.uddernetworks.holysheet.socket.payload.CodeExecutionRequest;
+import com.uddernetworks.holysheet.socket.payload.CodeExecutionResponse;
+import com.uddernetworks.holysheet.socket.payload.SerializedVariable;
+import com.uddernetworks.holysheet.utility.Utility;
 import jdk.jshell.JShell;
 import jdk.jshell.Snippet;
 import org.slf4j.Logger;
@@ -9,20 +15,24 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Queue;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.function.Consumer;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class JShellRemote {
-
-    // TODO: shell.sourceCodeAnalysis().analyzeCompletion
 
     private static final Gson GSON = new GsonBuilder()
             .setPrettyPrinting()
@@ -34,18 +44,18 @@ public class JShellRemote {
 
     private static JShellRemote instance;
 
-    private JShell shell;
+    private Queue<Map.Entry<CodeExecutionRequest, Consumer<CodeExecutionResponse>>> requestQueue = new ConcurrentLinkedQueue<>();
 
-    // These are ONLY to be used by JShell, they should not be accessed anywhere in the project
-    // they allow to interactively call the managers from the /evaluate command
-    public static Object obj;
+    private JShell shell;
 
     private Field key;
     private Method keyName;
 
+    private final SocketCommunication socketCommunication;
     private GsonExecutionControl executionControl;
 
-    public JShellRemote() {
+    public JShellRemote(SocketCommunication socketCommunication) {
+        this.socketCommunication = socketCommunication;
         try {
             key = Snippet.class.getDeclaredField("key");
             key.setAccessible(true);
@@ -70,37 +80,33 @@ public class JShellRemote {
         ).forEach(pkg -> shell.eval("import " + pkg + ";"));
     }
 
-    public static JShellRemote getInstance() {
-        if (instance == null) {
-            instance = new JShellRemote();
-        }
-
-        return instance;
-    }
-
     public void start() {
-        runCode("CompletableFuture.runAsync(() -> {\n" +
-                "            try {\n" +
-                "                Thread.sleep(5000);\n" +
-                "            } catch (InterruptedException ignored) {}\n" +
-                "            System.out.println(\"After 5 seconds!\");\n" +
-                "            long theTime = System.currentTimeMillis();\n" +
-                "            long theTimeTen = System.currentTimeMillis() * 10;\n" +
-                "            // callback 030ccb35-8e0b-4c13-a0a1-9a6347ad8849 theTime theTimeTen\n" +
-                "        });");
+        instance = this;
+        CompletableFuture.runAsync(() -> {
+            while (true) {
+                if (requestQueue.isEmpty()) {
+                    Utility.sleep(100);
+                    continue;
+                }
 
-//        runCode("Map.of(\"one\", 1)");
+                var entry = requestQueue.remove();
+                if (entry == null) {
+                    Utility.sleep(100);
+                    continue;
+                }
 
-        try {
-            Thread.sleep(100000);
-        } catch (InterruptedException ignored) {}
+                var request = entry.getKey();
+                var response = runCode(request.getState(), request.getInvokeCode());
+                entry.getValue().accept(response);
+            }
+        });
     }
 
-    public static void main(String[] args) {
-        getInstance().start();
+    public void queueRequest(CodeExecutionRequest codeExecutionRequest, Consumer<CodeExecutionResponse> responseConsumer) {
+        requestQueue.add(new AbstractMap.SimpleEntry<>(codeExecutionRequest, responseConsumer));
     }
 
-    public static void callback(String state, Object... dataArr) {
+    public static void callback(String requestState, String state, Object... dataArr) {
         if (dataArr.length % 2 != 0) {
             LOGGER.error("Data is not a multiple of 2!");
             return;
@@ -111,14 +117,15 @@ public class JShellRemote {
             data.add(new SerializedVariable((String) dataArr[i], dataArr[i + 1]));
         }
 
-        LOGGER.warn("THIS WILL BE REPLACED WITH A SOCKET CALL BACK TO DART");
-
-        getInstance().sendToDart(new ToDart(state, data.stream().map(SerializedVariable::getName).collect(Collectors.toUnmodifiableList()), data));
+        instance.sendCallbackResponse(new CodeExecutionCallbackResponse(1, "Success", requestState, state, data.stream().map(SerializedVariable::getName).collect(Collectors.toUnmodifiableList()), data));
     }
 
-    public void runCode(String code) {
-        System.out.println(code);
-        System.exit(0);
+    private void sendCallbackResponse(CodeExecutionCallbackResponse response) {
+        LOGGER.info("Sending callback response");
+        socketCommunication.sendPayload(response);
+    }
+
+    public CodeExecutionResponse runCode(String state, String code) {
         LOGGER.info("Preprocessing code...");
 
         var matcher = callbackPattern.matcher(code);
@@ -127,9 +134,9 @@ public class JShellRemote {
             if (calling.length == 0) {
                 System.out.println("Calling length 0!");
             } else {
-                var state = calling[0];
+                var callbackState = calling[0];
                 var rest = Arrays.copyOfRange(calling, 1, calling.length);
-                return String.format("JShellRemote.callback(\"%s\", %s);", state, Arrays.stream(rest).map(str -> "\"" + str + "\", " + str).collect(Collectors.joining(",")));
+                return String.format("JShellRemote.callback(\"%s\", \"%s\", %s);", state, callbackState, Arrays.stream(rest).map(str -> "\"" + str + "\", " + str).collect(Collectors.joining(",")));
             }
 
             return result.group();
@@ -157,12 +164,7 @@ public class JShellRemote {
             }
         });
 
-        sendToDart(new ToDart("1-1-1-1", retrieved, getVariables()));
-    }
-
-    private void sendToDart(ToDart toDart) {
-        var toDartJson = GSON.toJson(toDart);
-        System.out.println("toDartJson = \n" + toDartJson);
+        return new CodeExecutionResponse(1, "Success", state, retrieved, getVariables());
     }
 
     private List<SerializedVariable> getVariables() {

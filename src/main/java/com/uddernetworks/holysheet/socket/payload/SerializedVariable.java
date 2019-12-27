@@ -1,4 +1,4 @@
-package com.uddernetworks.holysheet.socket.jshell;
+package com.uddernetworks.holysheet.socket.payload;
 
 public class SerializedVariable {
     private String name;

@@ -73,6 +73,7 @@ public class CommandHandler implements Runnable {
         docStore.init();
 
         if (socket > 0) {
+            docStore.getjShellRemote().start();
             docStore.getSocketCommunication().start();
             Utility.sleep(Long.MAX_VALUE);
             return;

@@ -6,6 +6,7 @@ import com.uddernetworks.holysheet.DocStore;
 import com.uddernetworks.holysheet.SheetManager;
 import com.uddernetworks.holysheet.command.CommandHandler;
 import com.uddernetworks.holysheet.socket.payload.BasicPayload;
+import com.uddernetworks.holysheet.socket.payload.CodeExecutionRequest;
 import com.uddernetworks.holysheet.socket.payload.ErrorPayload;
 import com.uddernetworks.holysheet.socket.payload.ListRequest;
 import com.uddernetworks.holysheet.socket.payload.ListResponse;
@@ -15,7 +16,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -24,6 +24,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Scanner;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
@@ -41,6 +42,7 @@ public class SocketCommunication {
     private final DocStore docStore;
     private final SheetManager sheetManager;
     private ServerSocket serverSocket;
+    private final AtomicReference<Socket> lastClient = new AtomicReference<Socket>(); // The most recently active client
 
     private List<BiConsumer<Socket, String>> receivers = Collections.synchronizedList(new ArrayList<>());
 
@@ -57,6 +59,9 @@ public class SocketCommunication {
 
             while (true) {
                 var socket = serverSocket.accept();
+                if (lastClient.get() == null) {
+                    lastClient.set(socket);
+                }
                 CompletableFuture.runAsync(() -> {
                     try {
                         LOGGER.info("Got client");
@@ -65,6 +70,7 @@ public class SocketCommunication {
 
                         for (String line; (line = in.nextLine()) != null; ) {
                             final var input = line;
+                            lastClient.set(socket);
                             receivers.forEach(consumer -> consumer.accept(socket, input));
                             handleRequest(socket, input);
                         }
@@ -84,6 +90,15 @@ public class SocketCommunication {
                 LOGGER.error("Error closing payload", e);
             }
         }));
+    }
+
+    public void sendPayload(BasicPayload payload) {
+        var client = lastClient.get();
+        if (client == null) {
+            return;
+        }
+
+        sendData(client, payload);
     }
 
     private void handleRequest(Socket socket, String input) {
@@ -120,6 +135,13 @@ public class SocketCommunication {
 
                         sendData(socket, new ListResponse(1, "Success", state, uploads));
                         break;
+                    case CODE_EXECUTION_REQUEST:
+                        var codeExecutionRequest = GSON.fromJson(input, CodeExecutionRequest.class);
+
+                        LOGGER.info("Got code execution request");
+
+                        docStore.getjShellRemote().queueRequest(codeExecutionRequest, response ->
+                                sendData(socket, response));
                     default:
                         LOGGER.error("Unsupported type: {}", basicPayload.getType().name());
                         break;

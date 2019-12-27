@@ -26,6 +26,7 @@ package com.uddernetworks.holysheet.socket.jshell;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.uddernetworks.holysheet.socket.payload.SerializedVariable;
 import jdk.jshell.execution.DirectExecutionControl;
 import jdk.jshell.execution.LoaderDelegate;
 import jdk.jshell.spi.SPIResolutionException;
@@ -52,11 +53,11 @@ import java.util.stream.Collectors;
  */
 public class GsonExecutionControl extends DirectExecutionControl {
 
+    private static final boolean SERIALIZE_OUTPUT = false;
+
     private static final Gson GSON = new GsonBuilder()
             .setPrettyPrinting()
             .create();
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(GsonExecutionControl.class);
 
     private final Map<Class<?>, List<Field>> classFields = new ConcurrentHashMap<>();
 
@@ -182,9 +183,11 @@ public class GsonExecutionControl extends DirectExecutionControl {
         }
 
 
-        // TODO: No need to send this back
-//        return GSON.toJson(new SerializedVariable("?", res[0]));
-        return "";
+        if (!SERIALIZE_OUTPUT) {
+            return "";
+        }
+
+        return GSON.toJson(new SerializedVariable("?", res[0]));
     }
 
     public List<Field> getFields() {
@@ -193,7 +196,7 @@ public class GsonExecutionControl extends DirectExecutionControl {
 
     @Override
     @SuppressWarnings("deprecation")
-    public void stop() throws EngineTerminationException, InternalException {
+    public void stop() throws InternalException {
         synchronized (STOP_LOCK) {
             if (!userCodeRunning) {
                 return;

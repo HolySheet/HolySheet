@@ -12,7 +12,10 @@ public enum PayloadType {
     DOWNLOAD_REQUEST(5, true),
     DOWNLOAD_STATUS_RESPONSE(6, false),
     REMOVE_REQUEST(7, true),
-    REMOVE_STATUS_RESPONSE(9, false);
+    REMOVE_STATUS_RESPONSE(8, false),
+    CODE_EXECUTION_REQUEST(9, true),
+    CODE_EXECUTION_RESPONSE(10, false),
+    CODE_EXECUTION_CALLBACK_RESPONSE(11, false);
 
     private int type;
     private boolean receivable;
