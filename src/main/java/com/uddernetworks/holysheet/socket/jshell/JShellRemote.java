@@ -3,13 +3,17 @@ package com.uddernetworks.holysheet.socket.jshell;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.uddernetworks.holysheet.socket.SocketCommunication;
+import com.uddernetworks.holysheet.socket.payload.BasicPayload;
 import com.uddernetworks.holysheet.socket.payload.CodeExecutionCallbackResponse;
 import com.uddernetworks.holysheet.socket.payload.CodeExecutionRequest;
 import com.uddernetworks.holysheet.socket.payload.CodeExecutionResponse;
+import com.uddernetworks.holysheet.socket.payload.ErrorPayload;
 import com.uddernetworks.holysheet.socket.payload.SerializedVariable;
 import com.uddernetworks.holysheet.utility.Utility;
+import jdk.jshell.Diag;
 import jdk.jshell.JShell;
 import jdk.jshell.Snippet;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,14 +23,12 @@ import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Consumer;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -40,15 +42,17 @@ public class JShellRemote {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(JShellRemote.class);
 
-    private static final Pattern callbackPattern = Pattern.compile("(?:\\/\\/ callback )(.*$)", Pattern.MULTILINE);
+    private static final Pattern CALLBACK_PATTERN = Pattern.compile("(?:\\/\\/ callback )(.*$)", Pattern.MULTILINE);
+    private static final Pattern LINEBREAK = Pattern.compile("\\R");
 
     private static JShellRemote instance;
 
-    private Queue<Map.Entry<CodeExecutionRequest, Consumer<CodeExecutionResponse>>> requestQueue = new ConcurrentLinkedQueue<>();
+    private Queue<Map.Entry<CodeExecutionRequest, Consumer<BasicPayload>>> requestQueue = new ConcurrentLinkedQueue<>();
 
     private JShell shell;
 
     private Field key;
+    private Field diagnostics;
     private Method keyName;
 
     private final SocketCommunication socketCommunication;
@@ -59,6 +63,9 @@ public class JShellRemote {
         try {
             key = Snippet.class.getDeclaredField("key");
             key.setAccessible(true);
+
+            diagnostics = Snippet.class.getDeclaredField("diagnostics");
+            diagnostics.setAccessible(true);
 
             keyName = Class.forName("jdk.jshell.Key$PersistentKey").getDeclaredMethod("name");
             keyName.setAccessible(true);
@@ -73,9 +80,12 @@ public class JShellRemote {
         Stream.of(
                 "java.lang.*",
                 "java.util.*",
+                "java.io.*",
+                "javax.swing.*",
                 "java.util.Map",
                 "java.util.Collections",
-                "java.util.concurrent.CompletableFuture",
+                "java.util.concurrent.*",
+                "java.util.stream.*",
                 "com.uddernetworks.holysheet.socket.jshell.JShellRemote"
         ).forEach(pkg -> shell.eval("import " + pkg + ";"));
     }
@@ -102,7 +112,7 @@ public class JShellRemote {
         });
     }
 
-    public void queueRequest(CodeExecutionRequest codeExecutionRequest, Consumer<CodeExecutionResponse> responseConsumer) {
+    public void queueRequest(CodeExecutionRequest codeExecutionRequest, Consumer<BasicPayload> responseConsumer) {
         requestQueue.add(new AbstractMap.SimpleEntry<>(codeExecutionRequest, responseConsumer));
     }
 
@@ -112,10 +122,17 @@ public class JShellRemote {
             return;
         }
 
+        System.out.println("dataArr = " + Arrays.toString(dataArr));
+
         var data = new ArrayList<SerializedVariable>();
         for (int i = 0; i < dataArr.length; i += 2) {
             data.add(new SerializedVariable((String) dataArr[i], dataArr[i + 1]));
         }
+
+        var first = data.get(0);
+        System.out.println("first = " + first);
+        System.out.println(first.getObject());
+        System.out.println(GSON.toJson(first.getObject()));
 
         instance.sendCallbackResponse(new CodeExecutionCallbackResponse(1, "Success", requestState, state, data.stream().map(SerializedVariable::getName).collect(Collectors.toUnmodifiableList()), data));
     }
@@ -125,10 +142,10 @@ public class JShellRemote {
         socketCommunication.sendPayload(response);
     }
 
-    public CodeExecutionResponse runCode(String state, String code, List<String> returningVariables) {
+    public BasicPayload runCode(String state, String code, List<String> returningVariables) {
         LOGGER.info("Preprocessing code...");
 
-        var matcher = callbackPattern.matcher(code);
+        var matcher = CALLBACK_PATTERN.matcher(code);
         code = matcher.replaceAll(result -> {
             var calling = result.group(1).split("\\s+");
             if (calling.length == 0) {
@@ -136,25 +153,31 @@ public class JShellRemote {
             } else {
                 var callbackState = calling[0];
                 var rest = Arrays.copyOfRange(calling, 1, calling.length);
-                return String.format("JShellRemote.callback(\"%s\", \"%s\", %s);", state, callbackState, Arrays.stream(rest).map(str -> "\"" + str + "\", " + str).collect(Collectors.joining(",")));
+                var variables = Arrays.stream(rest).map(str -> "\"" + str + "\", " + str).collect(Collectors.joining(","));
+                if (!variables.isBlank()) {
+                    variables = ", " + variables;
+                }
+                return String.format("JShellRemote.callback(\"%s\", \"%s\"%s);", state, callbackState, variables);
             }
 
             return result.group();
         });
 
-        // Variable names of returned data
         var retrieved = new ArrayList<String>();
 
-        shell.eval(code).forEach(sne -> {
+        for (var sne : shell.eval(code)) {
             try {
                 var exception = sne.exception();
                 var value = sne.value();
+                var snippet = sne.snippet();
                 if (exception != null) {
-                    LOGGER.error("An error occurred", exception);
+                    return new ErrorPayload("Error occurred", state, ExceptionUtils.getStackTrace(exception));
                 } else if (sne.status() == Snippet.Status.REJECTED) {
-                    LOGGER.error("Rejected");
+                    var message = getDiagnostics(snippet).map(diagnostics ->
+                            joinDiagnostics(snippet.source(), diagnostics))
+                            .orElse("Rejected for unknown reasons");
+                    return new ErrorPayload(message, state, ExceptionUtils.getStackTrace(new RuntimeException()));
                 } else if (value != null) {
-                    var snippet = sne.snippet();
                     if (snippet.kind() == Snippet.Kind.VAR) {
                         getKey(snippet).ifPresent(retrieved::add);
                     }
@@ -162,7 +185,7 @@ public class JShellRemote {
             } catch (Exception e) {
                 e.printStackTrace();
             }
-        });
+        }
 
         return new CodeExecutionResponse(1, "Success", state, retrieved, getVariables(retrieved, returningVariables));
     }
@@ -176,6 +199,54 @@ public class JShellRemote {
                 .map(field -> new SerializedVariable(field.getName(), get(field)))
                 .filter(snippet -> snippet.getObject() != null)
                 .collect(Collectors.toUnmodifiableList());
+    }
+
+    private String joinDiagnostics(String source, List<Diag> diagnostics) {
+        return diagnostics.stream().map(d -> (d.isError() ? "Error:\n" : "Warning:\n") +
+                String.join("\n", getDisplayableDiagnostic(source, d)))
+                .collect(Collectors.joining("\n"));
+    }
+
+    private List<String> getDisplayableDiagnostic(String source, Diag diag) {
+        var toDisplay = new ArrayList<String>();
+
+        Arrays.stream(diag.getMessage(null).split("\\r?\\n"))
+                .filter(line -> !line.trim().startsWith("location:"))
+                .forEach(toDisplay::add);
+
+        int pstart = (int) diag.getStartPosition();
+        int pend = (int) diag.getEndPosition();
+        var m = LINEBREAK.matcher(source);
+        int pstartl = 0;
+        int pendl = -2;
+        while (m.find(pstartl)) {
+            pendl = m.start();
+            if (pendl >= pstart) {
+                break;
+            } else {
+                pstartl = m.end();
+            }
+        }
+
+        if (pendl < pstart) {
+            pendl = source.length();
+        }
+
+        toDisplay.add(source.substring(pstartl, pendl));
+
+        var builder = new StringBuilder();
+        int start = pstart - pstartl;
+        builder.append(" ".repeat(Math.max(0, start))).append('^');
+
+        boolean multiline = pend > pendl;
+        int end = (multiline ? pendl : pend) - pstartl - 1;
+        if (end > start) {
+            builder.append("-".repeat(Math.max(0, end - (start + 1))))
+                    .append(multiline ? "-..." : "^");
+        }
+
+        toDisplay.add(builder.toString());
+        return toDisplay;
     }
 
     private Optional<String> getKey(Snippet snippet) {
@@ -195,6 +266,16 @@ public class JShellRemote {
         } catch (IllegalAccessException e) {
             e.printStackTrace();
             return null;
+        }
+    }
+
+    private Optional<List<Diag>> getDiagnostics(Snippet snippet) {
+        try {
+            var dia = (List<Diag>) this.diagnostics.get(snippet);
+            return Optional.ofNullable(dia);
+        } catch (ReflectiveOperationException e) {
+            e.printStackTrace();
+            return Optional.empty();
         }
     }
 
