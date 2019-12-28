@@ -166,7 +166,7 @@ public class SheetIO {
     }
 
     private void printProgress(String title, long currSize, long totalSize, int index, int total) {
-        System.out.println(Utility.progressBar("Uploading " + title, humanReadableByteCountSI(currSize) + "/" + humanReadableByteCountSI(totalSize), 40,  index/ (double) total));
+        System.out.println(Utility.progressBar("Uploading " + title, humanReadableByteCountSI(currSize) + "/" + humanReadableByteCountSI(totalSize), 40, index / (double) total));
     }
 
     private File processChunk(FileChunk chunk, File parent) {
@@ -196,7 +196,20 @@ public class SheetIO {
     }
 
     public void deleteData(String id) {
+        deleteData(id, true);
+    }
+
+    public void deleteData(String id, boolean confirm) {
+        deleteData(id, confirm, s -> {}, () -> {});
+    }
+
+    public void deleteData(String id, boolean confirm, Consumer<String> onError, Runnable onSuccess) {
         try {
+            Consumer<String> onLogError = (String string) -> {
+                LOGGER.error(string);
+                onError.accept(string);
+            };
+
             var file = drive.files().get(id).setFields("id, name, properties").execute();
 
             if (file == null) {
@@ -206,26 +219,28 @@ public class SheetIO {
 
             var properties = file.getProperties();
             if (!"true".equals(properties.get("directParent"))) {
-                LOGGER.error("The given file was not detected as a direct parent of generated sheet data. For your safety, DocStore will not delete anything not directly created by it, therefore this action has been cancelled.");
+                onLogError.accept("The given file was not detected as a direct parent of generated sheet data. For your safety, DocStore will not delete anything not directly created by it, therefore this action has been cancelled.");
                 return;
             }
 
-            LOGGER.info("Are you sure you want to delete \"{}\"? It consists of {} sheets totalling {}{}. This action skips the trash and is irreversible. (y/n)",
-                    file.getName(),
-                    properties.get("sheets"),
-                    humanReadableByteCountSI(Long.parseLong(properties.get("size"))),
-                    "true".equals(properties.get("compressed")) ? " compressed" : "");
+            if (confirm) {
+                LOGGER.info("Are you sure you want to delete \"{}\"? It consists of {} sheets totalling {}{}. This action skips the trash and is irreversible. (y/n)",
+                        file.getName(),
+                        properties.get("sheets"),
+                        humanReadableByteCountSI(Long.parseLong(properties.get("size"))),
+                        "true".equals(properties.get("compressed")) ? " compressed" : "");
 
-            var scanner = new Scanner(System.in);
-            if (!scanner.hasNextLine()) {
-                LOGGER.info("Cancelling removal.");
-                return;
-            }
+                var scanner = new Scanner(System.in);
+                if (!scanner.hasNextLine()) {
+                    LOGGER.info("Cancelling removal.");
+                    return;
+                }
 
-            var line = scanner.nextLine();
-            if (!"y".equalsIgnoreCase(line) && "yes".equalsIgnoreCase(line)) {
-                LOGGER.info("Cancelling removal.");
-                return;
+                var line = scanner.nextLine();
+                if (!"y".equalsIgnoreCase(line) && "yes".equalsIgnoreCase(line)) {
+                    LOGGER.info("Cancelling removal.");
+                    return;
+                }
             }
 
             LOGGER.info("Removing {}...", file.getName());
@@ -233,8 +248,11 @@ public class SheetIO {
             drive.files().delete(id).execute();
 
             LOGGER.info("Removed successfully");
+
+            onSuccess.run();
         } catch (IOException e) {
             LOGGER.error("An error occurred while deleting the file " + id, e);
+            throw new UncheckedIOException("An error occurred while deleting the file " + id, e);
         }
     }
 }

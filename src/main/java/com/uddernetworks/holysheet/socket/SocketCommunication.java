@@ -11,6 +11,8 @@ import com.uddernetworks.holysheet.socket.payload.ErrorPayload;
 import com.uddernetworks.holysheet.socket.payload.ListItem;
 import com.uddernetworks.holysheet.socket.payload.ListRequest;
 import com.uddernetworks.holysheet.socket.payload.ListResponse;
+import com.uddernetworks.holysheet.socket.payload.RemoveRequest;
+import com.uddernetworks.holysheet.socket.payload.RemoveStatusResponse;
 import com.uddernetworks.holysheet.socket.payload.UploadRequest;
 import com.uddernetworks.holysheet.socket.payload.UploadStatusResponse;
 import com.uddernetworks.holysheet.utility.Utility;
@@ -125,6 +127,8 @@ public class SocketCommunication {
                     return;
                 }
 
+                var sheetIO = docStore.getSheetManager().getSheetIO();
+
                 switch (type) {
                     case LIST_REQUEST:
                         var listRequest = GSON.fromJson(input, ListRequest.class);
@@ -156,8 +160,6 @@ public class SocketCommunication {
 
                         LOGGER.info("Uploading {}...", file.getName());
 
-                        var sheetIO = docStore.getSheetManager().getSheetIO();
-
                         try {
                             long start = System.currentTimeMillis();
                             var name = FilenameUtils.getName(file.getAbsolutePath());
@@ -177,6 +179,17 @@ public class SocketCommunication {
                             sendData(socket, new ErrorPayload("Error reading and uploading file", state, Utility.getStackTrace(e)));
                         }
                         break;
+                    case REMOVE_REQUEST:
+                        var removeRequest = GSON.fromJson(input, RemoveRequest.class);
+
+                        LOGGER.info("Got remove request for {}", removeRequest.getId());
+
+                        sendData(socket, new RemoveStatusResponse(1, "Success", state, "PENDING", 0));
+
+                        sheetIO.deleteData(removeRequest.getId(), false, error ->
+                                sendData(socket, new ErrorPayload(error, state, Utility.getStackTrace())), () ->
+                                sendData(socket, new RemoveStatusResponse(1, "Success", state, "COMPLETE", 1)));
+                        break;
                     case CODE_EXECUTION_REQUEST:
                         var codeExecutionRequest = GSON.fromJson(input, CodeExecutionRequest.class);
 
@@ -187,12 +200,12 @@ public class SocketCommunication {
                         break;
                     default:
                         LOGGER.error("Unsupported type: {}", basicPayload.getType().name());
-                        sendData(socket, GSON.toJson(new ErrorPayload("Unsupported type: " + basicPayload.getType().name(), basicPayload.getState(), ExceptionUtils.getStackTrace(new RuntimeException()))));
+                        sendData(socket, new ErrorPayload("Unsupported type: " + basicPayload.getType().name(), basicPayload.getState(), ExceptionUtils.getStackTrace(new RuntimeException())));
                         break;
                 }
             } catch (Exception e) { // Catching Exception only for error reporting back to GUI/Other client
                 LOGGER.error("Exception while parsing client received data", e);
-                sendData(socket, GSON.toJson(new ErrorPayload(e.getMessage(), basicPayload.getState(), ExceptionUtils.getStackTrace(e))));
+                sendData(socket, new ErrorPayload(e.getMessage(), basicPayload.getState(), ExceptionUtils.getStackTrace(e)));
             }
         }).exceptionally(t -> {
             LOGGER.error("Exception while parsing client received data", t);

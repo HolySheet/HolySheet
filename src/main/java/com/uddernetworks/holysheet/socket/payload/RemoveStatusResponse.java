@@ -20,12 +20,12 @@ import com.uddernetworks.holysheet.socket.PayloadType;
  *
  * @see PayloadType#REMOVE_STATUS_RESPONSE
  */
-public class RemoveStatusRequest extends BasicPayload {
+public class RemoveStatusResponse extends BasicPayload {
 
     private String status;
     private double percentage;
 
-    public RemoveStatusRequest(int code, String message, String state, String status, double percentage) {
+    public RemoveStatusResponse(int code, String message, String state, String status, double percentage) {
         super(code, PayloadType.REMOVE_STATUS_RESPONSE, message, state);
         this.status = status;
         this.percentage = percentage;
