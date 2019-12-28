@@ -8,7 +8,7 @@ import com.uddernetworks.holysheet.socket.PayloadType;
  * <pre>
  * {
  *     "status": "DOWNLOADING",
- *     "percentage": "0.856"
+ *     "percentage": 0.856
  * }
  * </pre>
  *

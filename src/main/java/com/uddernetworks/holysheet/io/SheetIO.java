@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Scanner;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static com.uddernetworks.holysheet.utility.Utility.round;
@@ -107,6 +108,10 @@ public class SheetIO {
     }
 
     public File uploadData(String title, boolean compress, byte[] data) throws IOException {
+        return uploadData(title, compress, data, null);
+    }
+
+    public File uploadData(String title, boolean compress, byte[] data, Consumer<Double> statusUpdate) throws IOException {
         if (compress) {
             data = CompressionUtils.compress(data);
         }
@@ -135,17 +140,27 @@ public class SheetIO {
 
         LOGGER.info("Processing {} chunks", chunks.size());
 
-        processChunks(chunks, parent, title, encoded.getLength());
+        processChunks(chunks, parent, title, encoded.getLength(), statusUpdate);
 
         return parent;
     }
 
-    private Map<FileChunk, File> processChunks(List<FileChunk> chunks, File parent, String title, long size) {
+    private Map<FileChunk, File> processChunks(List<FileChunk> chunks, File parent, String title, long size, Consumer<Double> statusUpdate) {
         var index = new AtomicInteger();
+        final double totalChunks = chunks.size();
         var map = chunks.stream().collect(Collectors.toMap(c -> c, c -> {
+            if (statusUpdate != null) {
+                statusUpdate.accept(index.getAndIncrement() / totalChunks);
+            }
+
             printProgress(title, c.getBytes().length, size, index.getAndIncrement(), chunks.size());
             return processChunk(c, parent);
         }));
+
+        if (statusUpdate != null) {
+            statusUpdate.accept(1D);
+        }
+
         printProgress(title, size, size, chunks.size(), chunks.size());
         return map;
     }

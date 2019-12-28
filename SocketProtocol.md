@@ -127,14 +127,14 @@ Contains a list of files and their basic information.
 }
 ```
 
-| Key    | Example Value                     | Description                                    |
-| ------ | --------------------------------- | ---------------------------------------------- |
-| items  | Array of below items in an object | A collection of files/items retrieved.         |
-| name   | String                            | The name of the file                           |
-| size   | Long                              | The size of the file in bytes                  |
-| sheets | Integer                           | The amount of sheets the file consists of      |
-| date   | Long                              | The millisecond timestamp the file was created |
-| id     | String                            | The sheets-generated ID of the file            |
+| Key    | Example Value | Description                                                  |
+| ------ | ------------- | ------------------------------------------------------------ |
+| items  | Item[]        | A collection of files/items retrieved. The Item object is outlined in the following 5 properties. |
+| name   | String        | The name of the file                                         |
+| size   | Long          | The size of the file in bytes                                |
+| sheets | Integer       | The amount of sheets the file consists of                    |
+| date   | Long          | The millisecond timestamp the file was created               |
+| id     | String        | The sheets-generated ID of the file                          |
 
 
 
@@ -169,15 +169,29 @@ A status update saying how far along an upload is.
 ```json
 {
     "status": "UPLOADING",
-    "percentage": 0.856
+    "percentage": 0.856,
+    "items": [
+         {
+           "name": "test.txt",
+           "size": 54321,
+           "sheets": 6,
+           "date": 1577200502088,
+           "id": "abcdefghijklmnopqrstuvwxyz"
+         }
+     ]
 }
 ```
 
 | Key        | Value                            | Description                                                  |
 | ---------- | -------------------------------- | ------------------------------------------------------------ |
-| status     | `(PENDING\|UPLOADING\|COMPLETE)` | The status of the upload                                     |
+| status     | `(PENDING\|UPLOADING\|COMPLETE)` | The status of the upload. If complete, the                   |
 | percentage | Double                           | The 0-1 percentage of the file upload. If pending, this value should be 0. |
-
+| items      | Item[]                           | A collection of files/items uploaded. This list is only populated if the status is `COMPLETE`. The Item object is outlined in the following 5 properties. |
+| name       | String                           | The name of the file                                         |
+| size       | Long                             | The size of the file in bytes                                |
+| sheets     | Integer                          | The amount of sheets the file consists of                    |
+| date       | Long                             | The millisecond timestamp the file was created               |
+| id         | String                           | The sheets-generated ID of the file                          |
 
 
 ## DownloadRequest (5)

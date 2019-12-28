@@ -1,5 +1,7 @@
 package com.uddernetworks.holysheet.utility;
 
+import org.apache.commons.lang3.exception.ExceptionUtils;
+
 import java.util.Collection;
 import java.util.Optional;
 
@@ -24,6 +26,14 @@ public class Utility {
         line += " ".repeat(width - filled);
         line += "]" + beforePercent + " " + ((int) (percent * 100)) + "%";
         return line;
+    }
+
+    public static String getStackTrace() {
+        return ExceptionUtils.getStackTrace(new RuntimeException());
+    }
+
+    public static String getStackTrace(Throwable throwable) {
+        return ExceptionUtils.getStackTrace(throwable);
     }
 
     /**

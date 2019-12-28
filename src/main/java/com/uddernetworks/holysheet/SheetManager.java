@@ -108,7 +108,8 @@ public class SheetManager {
                 .setMimeType(Mime.FOLDER.getMime())
                 .setParents(parent == null ? null : Collections.singletonList(parent.getId()))
                 .setProperties(properties)
-                .setName(name)).execute();
+                .setName(name))
+                .setFields("id, name, mimeType, parents, size, modifiedTime, properties").execute();
     }
 
     /**

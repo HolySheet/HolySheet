@@ -8,13 +8,19 @@ import com.uddernetworks.holysheet.command.CommandHandler;
 import com.uddernetworks.holysheet.socket.payload.BasicPayload;
 import com.uddernetworks.holysheet.socket.payload.CodeExecutionRequest;
 import com.uddernetworks.holysheet.socket.payload.ErrorPayload;
+import com.uddernetworks.holysheet.socket.payload.ListItem;
 import com.uddernetworks.holysheet.socket.payload.ListRequest;
 import com.uddernetworks.holysheet.socket.payload.ListResponse;
-import com.uddernetworks.holysheet.socket.payload.ListResponse.ListItem;
+import com.uddernetworks.holysheet.socket.payload.UploadRequest;
+import com.uddernetworks.holysheet.socket.payload.UploadStatusResponse;
+import com.uddernetworks.holysheet.utility.Utility;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.ServerSocket;
@@ -111,11 +117,11 @@ public class SocketCommunication {
                 }
 
                 var type = basicPayload.getType();
-                var state = basicPayload.getState();
+                var state = basicPayload.getState(); // gradle run --args="-s 4567"
 
                 if (!type.isReceivable()) {
                     LOGGER.error("Received unreceivable payload type: {}", type.name());
-                    sendData(socket, GSON.toJson(new ErrorPayload("Received unreceivable payload type: " + type.name(), state, ExceptionUtils.getStackTrace(new RuntimeException()))));
+                    sendData(socket, new ErrorPayload("Received unreceivable payload type: " + type.name(), state, Utility.getStackTrace()));
                     return;
                 }
 
@@ -134,6 +140,42 @@ public class SocketCommunication {
                         }
 
                         sendData(socket, new ListResponse(1, "Success", state, uploads));
+                        break;
+                    case UPLOAD_REQUEST:
+                        var uploadRequest = GSON.fromJson(input, UploadRequest.class);
+
+                        LOGGER.info("Got upload request for {}", uploadRequest.getFile());
+
+                        var file = new File(uploadRequest.getFile());
+
+                        if (!file.isFile()) {
+                            LOGGER.error("File '{}' does not exist!", file.getAbsolutePath());
+                            sendData(socket, new ErrorPayload("File '" + file.getAbsolutePath() + "' does not exist", state, Utility.getStackTrace()));
+                            return;
+                        }
+
+                        LOGGER.info("Uploading {}...", file.getName());
+
+                        var sheetIO = docStore.getSheetManager().getSheetIO();
+
+                        try {
+                            long start = System.currentTimeMillis();
+                            var name = FilenameUtils.getName(file.getAbsolutePath());
+
+                            sendData(socket, new UploadStatusResponse(1, "Success", state, "PENDING", 0, Collections.emptyList()));
+
+                            var uploaded = sheetIO.uploadData(name, !uploadRequest.getCompression().equals("none"), new FileInputStream(file).readAllBytes(), percentage -> {
+                                sendData(socket, new UploadStatusResponse(1, "Success", state, "UPLOADING", percentage, Collections.emptyList()));
+                            });
+
+                            LOGGER.info("Uploaded {} in {}ms", uploaded.getId(), System.currentTimeMillis() - start);
+
+                            sendData(socket, new UploadStatusResponse(1, "Success", state, "COMPLETE", 1, Collections.singletonList(
+                                    new ListItem(file.getName(), CommandHandler.getSize(uploaded), CommandHandler.getSheetCount(uploaded), uploaded.getModifiedTime().getValue(), uploaded.getId()))));
+                        } catch (IOException e) {
+                            LOGGER.error("Error reading and uploading file", e);
+                            sendData(socket, new ErrorPayload("Error reading and uploading file", state, Utility.getStackTrace(e)));
+                        }
                         break;
                     case CODE_EXECUTION_REQUEST:
                         var codeExecutionRequest = GSON.fromJson(input, CodeExecutionRequest.class);
@@ -172,6 +214,7 @@ public class SocketCommunication {
 
     public static void sendData(Socket socket, String data) {
         try {
+            System.out.println(data);
             var out = socket.getOutputStream();
             out.write(data.getBytes());
             out.flush();
