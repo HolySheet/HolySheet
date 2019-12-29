@@ -52,16 +52,29 @@ public class SheetIO {
         this.docstore = sheetManager.getDocstore();
     }
 
+    public void downloadData(String id, Consumer<Double> statusUpdate, Consumer<String> onError, Consumer<ByteArrayOutputStream> onSuccess) throws IOException {
+        downloadData(id, statusUpdate, onError).ifPresent(onSuccess);
+    }
+
     public Optional<ByteArrayOutputStream> downloadData(String id) throws IOException {
+        return downloadData(id, $ -> {}, $ -> {});
+    }
+
+    public Optional<ByteArrayOutputStream> downloadData(String id, Consumer<Double> statusUpdate, Consumer<String> onError) throws IOException {
+        Consumer<String> onLogError = (String string) -> {
+            LOGGER.error(string);
+            onError.accept(string);
+        };
+
         var parent = drive.files().get(id).setFields("id, properties").execute();
         if (parent == null) {
-            LOGGER.error("Couldn't find id {}", id);
+            onLogError.accept("Couldn't find id " + id);
             return Optional.empty();
         }
 
         var props = parent.getProperties();
         if (!props.get("directParent").equals("true")) {
-            LOGGER.error("Not a direct parent!");
+            onLogError.accept("Not a direct parent!");
             return Optional.empty();
         }
 
@@ -74,12 +87,16 @@ public class SheetIO {
         LOGGER.info("Found {} children", files.size());
 
         var encodingOut = new DecodingOutputStream<ByteArrayOutputStream>();
+        var downloadedIndex = new double[]{0};
 
         files.stream().sorted(Comparator.comparingInt(file -> {
             var fp = file.getProperties();
             if (fp == null) return -1;
             return Integer.parseInt(fp.get("index"));
-        })).forEach(file -> downloadSheet(file, encodingOut));
+        })).forEach(file -> {
+            downloadSheet(file, encodingOut);
+            statusUpdate.accept(downloadedIndex[0]++ / (double) files.size());
+        });
         encodingOut.flush();
         LOGGER.info("Downloaded {} sheets", files.size());
 
@@ -213,7 +230,7 @@ public class SheetIO {
             var file = drive.files().get(id).setFields("id, name, properties").execute();
 
             if (file == null) {
-                LOGGER.error("No file could be found with the given ID \"{}\"", id);
+                onLogError.accept("No file could be found with the given ID \"" + id + "\"");
                 return;
             }
 

@@ -30,8 +30,8 @@ import static com.uddernetworks.holysheet.utility.Utility.humanReadableByteCount
 public class CommandHandler implements Runnable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CommandHandler.class);
-    private static final DateFormat DATE_FORMAT = new SimpleDateFormat("MM-dd-yyyy");
-    private static final Pattern ID_PATTERN = Pattern.compile("([a-zA-Z0-9-_]+)");
+    public static final DateFormat DATE_FORMAT = new SimpleDateFormat("MM-dd-yyyy");
+    public static final Pattern ID_PATTERN = Pattern.compile("([a-zA-Z0-9-_]+)");
 
     private final DocStore docStore;
 

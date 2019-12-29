@@ -7,6 +7,8 @@ import com.uddernetworks.holysheet.SheetManager;
 import com.uddernetworks.holysheet.command.CommandHandler;
 import com.uddernetworks.holysheet.socket.payload.BasicPayload;
 import com.uddernetworks.holysheet.socket.payload.CodeExecutionRequest;
+import com.uddernetworks.holysheet.socket.payload.DownloadRequest;
+import com.uddernetworks.holysheet.socket.payload.DownloadStatusResponse;
 import com.uddernetworks.holysheet.socket.payload.ErrorPayload;
 import com.uddernetworks.holysheet.socket.payload.ListItem;
 import com.uddernetworks.holysheet.socket.payload.ListRequest;
@@ -23,6 +25,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.ServerSocket;
@@ -35,6 +38,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
+
+import static com.uddernetworks.holysheet.command.CommandHandler.ID_PATTERN;
 
 public class SocketCommunication {
 
@@ -127,7 +132,7 @@ public class SocketCommunication {
                     return;
                 }
 
-                var sheetIO = docStore.getSheetManager().getSheetIO();
+                var sheetIO = sheetManager.getSheetIO();
 
                 switch (type) {
                     case LIST_REQUEST:
@@ -136,8 +141,8 @@ public class SocketCommunication {
                         LOGGER.info("Got list request. Query: {}", listRequest.getQuery());
 
                         List<ListItem> uploads;
-                        synchronized (sheetManager) {
-                            uploads = sheetManager.listUploads()
+                        synchronized (this.sheetManager) {
+                            uploads = this.sheetManager.listUploads()
                                     .stream()
                                     .map(file -> new ListItem(file.getName(), CommandHandler.getSize(file), CommandHandler.getSheetCount(file), file.getModifiedTime().getValue(), file.getId()))
                                     .collect(Collectors.toUnmodifiableList());
@@ -160,23 +165,50 @@ public class SocketCommunication {
 
                         LOGGER.info("Uploading {}...", file.getName());
 
-                        try {
-                            long start = System.currentTimeMillis();
-                            var name = FilenameUtils.getName(file.getAbsolutePath());
+                        long start = System.currentTimeMillis();
+                        var name = FilenameUtils.getName(file.getAbsolutePath());
 
-                            sendData(socket, new UploadStatusResponse(1, "Success", state, "PENDING", 0, Collections.emptyList()));
+                        sendData(socket, new UploadStatusResponse(1, "Success", state, "PENDING", 0, Collections.emptyList()));
 
-                            var uploaded = sheetIO.uploadData(name, !uploadRequest.getCompression().equals("none"), new FileInputStream(file).readAllBytes(), percentage -> {
-                                sendData(socket, new UploadStatusResponse(1, "Success", state, "UPLOADING", percentage, Collections.emptyList()));
+                        var uploaded = sheetIO.uploadData(name, !uploadRequest.getCompression().equals("none"), new FileInputStream(file).readAllBytes(), percentage ->
+                                sendData(socket, new UploadStatusResponse(1, "Success", state, "UPLOADING", percentage, Collections.emptyList())));
+
+                        LOGGER.info("Uploaded {} in {}ms", uploaded.getId(), System.currentTimeMillis() - start);
+
+                        sendData(socket, new UploadStatusResponse(1, "Success", state, "COMPLETE", 1, Collections.singletonList(
+                                new ListItem(file.getName(), CommandHandler.getSize(uploaded), CommandHandler.getSheetCount(uploaded), uploaded.getModifiedTime().getValue(), uploaded.getId()))));
+                        break;
+                    case DOWNLOAD_REQUEST:
+                        var downloadRequest = GSON.fromJson(input, DownloadRequest.class);
+
+                        var id = downloadRequest.getId();
+
+                        start = System.currentTimeMillis();
+                        var sheet = sheetManager.getFile(downloadRequest.getId());
+
+                        if (sheet == null) {
+                            LOGGER.error("No file could be found with the given ID \"" + id + "\"");
+                            sendData(socket, new ErrorPayload("No file could be found with the given ID \"" + id + "\"", state, Utility.getStackTrace()));
+                            return;
+                        }
+
+                        sendData(socket, new DownloadStatusResponse(1, "Success", state, "PENDING", 0));
+
+                        // TODO: Add settings with download folder path
+                        try (var fileStream = new FileOutputStream(new File("E:\\sheety_gui\\downloading\\" + sheet.getName()))) {
+                            sheetManager.getSheetIO().downloadData(id, percentage ->
+                                    sendData(socket, new DownloadStatusResponse(1, "Success", state, "UPLOADING", percentage)), error ->
+                                    sendData(socket, new ErrorPayload(error, state, Utility.getStackTrace())), bytes -> {
+                                try {
+                                    fileStream.write(bytes.toByteArray());
+
+                                    LOGGER.info("Downloaded in {}ms", System.currentTimeMillis() - start);
+
+                                    sendData(socket, new DownloadStatusResponse(1, "Success", state, "COMPLETE", 1));
+                                } catch (IOException e) {
+                                    throw new UncheckedIOException(e);
+                                }
                             });
-
-                            LOGGER.info("Uploaded {} in {}ms", uploaded.getId(), System.currentTimeMillis() - start);
-
-                            sendData(socket, new UploadStatusResponse(1, "Success", state, "COMPLETE", 1, Collections.singletonList(
-                                    new ListItem(file.getName(), CommandHandler.getSize(uploaded), CommandHandler.getSheetCount(uploaded), uploaded.getModifiedTime().getValue(), uploaded.getId()))));
-                        } catch (IOException e) {
-                            LOGGER.error("Error reading and uploading file", e);
-                            sendData(socket, new ErrorPayload("Error reading and uploading file", state, Utility.getStackTrace(e)));
                         }
                         break;
                     case REMOVE_REQUEST:
