@@ -39,8 +39,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
-import static com.uddernetworks.holysheet.command.CommandHandler.ID_PATTERN;
-
 public class SocketCommunication {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SocketCommunication.class);
@@ -192,10 +190,18 @@ public class SocketCommunication {
                             return;
                         }
 
+                        var destination = new File(downloadRequest.getPath());
+                        var parent = destination.getParentFile();
+
+                        if (!parent.exists() || !parent.mkdirs()) {
+                            LOGGER.error("Couldn't find or create parent of \"" + parent.getAbsolutePath() + "\"");
+                            sendData(socket, new ErrorPayload("Couldn't find or create parent of \"" + parent.getAbsolutePath() + "\"", state, Utility.getStackTrace()));
+                            return;
+                        }
+
                         sendData(socket, new DownloadStatusResponse(1, "Success", state, "PENDING", 0));
 
-                        // TODO: Add settings with download folder path
-                        try (var fileStream = new FileOutputStream(new File("E:\\sheety_gui\\downloading\\" + sheet.getName()))) {
+                        try (var fileStream = new FileOutputStream(destination)) {
                             sheetManager.getSheetIO().downloadData(id, percentage ->
                                     sendData(socket, new DownloadStatusResponse(1, "Success", state, "UPLOADING", percentage)), error ->
                                     sendData(socket, new ErrorPayload(error, state, Utility.getStackTrace())), bytes -> {

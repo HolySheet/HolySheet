@@ -23,6 +23,7 @@ public class DocStore {
     private Sheets sheets;
 
     public static void main(String[] args) {
+        LOGGER.info("mainb!!!!! {}", (Object) args);
         new DocStore().start(args);
     }
 

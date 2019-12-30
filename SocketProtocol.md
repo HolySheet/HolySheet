@@ -15,6 +15,8 @@ When not running in CLI mode, HolySheet has the ability to communicate to other 
 - [CodeExecutionRequest](#CodeExecutionRequest-9)
 - [CodeExecutionResponse](#CodeExecutionResponse-10)
 - [CodeExecutionCallbackResponse](#CodeExecutionCallbackResponse-11)
+- [SettingRequest](#SettingRequest-12)
+- [SettingResponse](#SettingResponse-13)
 
 The following section is an example of how the protocol specification will be displayed:
 
@@ -202,13 +204,15 @@ A request to download the given remote file from Sheets to a destination.
 
 ```json
 {
-    "id": "1KLruEf0d8GJgf7JGaYUiNnW_Pe0Zumvq"
+    "id": "1KLruEf0d8GJgf7JGaYUiNnW_Pe0Zumvq",
+    "path": "E:\\file.mp4"
 }
 ```
 
 | Key  | Value  | Description                                     |
 | ---- | ------ | ----------------------------------------------- |
 | id   | String | The Sheets-generated ID of the file to download |
+| path | String | The file path to save the file to               |
 
 
 
@@ -381,4 +385,3 @@ CompletableFuture.runAsync(() -> {
     // callback 030ccb35-8e0b-4c13-a0a1-9a6347ad8849 theTime theTimeHalved
 });
 ```
-
