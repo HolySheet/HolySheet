@@ -144,7 +144,7 @@ Contains a list of files and their basic information.
 
 `Client --> Server`
 
-A request to upload a given file.
+A request to upload a given file. Either `file` or `id` may be defined below, however only one.
 
 ```json
 {
@@ -157,6 +157,7 @@ A request to upload a given file.
 | Key         | Value                 | Description                                                  |
 | ----------- | --------------------- | ------------------------------------------------------------ |
 | file        | URL                   | The URL of the file to upload                                |
+| id          | String                | The Google Drive ID of the file to download and upload       |
 | upload      | `(multipart\|direct)` | Toggles multipart or direct uploading (Multipart recommended) |
 | compression | `(none\|zip)`         | The compression algorithm to use, if any.                    |
 

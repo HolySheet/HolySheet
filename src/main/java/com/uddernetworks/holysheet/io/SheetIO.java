@@ -1,6 +1,7 @@
 package com.uddernetworks.holysheet.io;
 
 import com.google.api.client.http.ByteArrayContent;
+import com.google.api.client.http.GenericUrl;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.model.File;
 import com.google.api.services.sheets.v4.Sheets;
@@ -270,6 +271,64 @@ public class SheetIO {
         } catch (IOException e) {
             LOGGER.error("An error occurred while deleting the file " + id, e);
             throw new UncheckedIOException("An error occurred while deleting the file " + id, e);
+        }
+    }
+
+    public void cloneFile(String fileId, boolean compress) {
+        downloadFile(fileId).ifPresent(fileData -> {
+            var file = fileData.getFile();
+            var out = fileData.getOut();
+
+            var name = file.getName();
+
+            LOGGER.info("Saving {}...", name);
+
+            try {
+                uploadData(name, compress, out.toByteArray());
+            } catch (IOException e) {
+                LOGGER.error("An error occurred while uploading the " + fileId, e);
+            }
+        });
+    }
+
+    /**
+     * Downloads a file for CLONING ONLY.
+     *
+     * @return File bytes
+     */
+    public Optional<FileData> downloadFile(String fileId) {
+        try {
+            var file = drive.files().get(fileId).execute();
+
+            if (file == null) {
+                LOGGER.error("No file could be found with the given ID \"{}\"", fileId);
+                return Optional.empty();
+            }
+
+            var out = new ByteArrayOutputStream();
+            drive.files().get(fileId).executeMediaAndDownloadTo(out);
+            return Optional.of(new FileData(file, out));
+        } catch (IOException e) {
+            LOGGER.error("An error occurred while downloading the file " + fileId, e);
+            return Optional.empty();
+        }
+    }
+
+    public static class FileData {
+        private final File file;
+        private final ByteArrayOutputStream out;
+
+        public FileData(File file, ByteArrayOutputStream out) {
+            this.file = file;
+            this.out = out;
+        }
+
+        public File getFile() {
+            return file;
+        }
+
+        public ByteArrayOutputStream getOut() {
+            return out;
         }
     }
 }

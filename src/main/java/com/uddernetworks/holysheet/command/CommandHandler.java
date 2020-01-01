@@ -13,6 +13,7 @@ import picocli.CommandLine.Option;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.text.DateFormat;
@@ -41,6 +42,9 @@ public class CommandHandler implements Runnable {
     @Option(names = {"-s", "--socket"}, description = "Starts communication socket on the given port, used to interface with other apps")
     int socket = -1;
 
+    @Option(names = {"-c", "--compress"}, description = "Compressed before uploading, currently uses Zip format")
+    boolean compression;
+
     @ArgGroup(multiplicity = "0..1")
     RequiresParam param;
 
@@ -50,8 +54,8 @@ public class CommandHandler implements Runnable {
 
     static class RequiresParam {
 
-        @ArgGroup(exclusive = false, multiplicity = "1")
-        Upload upload;
+//        @ArgGroup(exclusive = false, multiplicity = "1")
+//        Upload upload;
 
         @Option(names = {"-d", "--download"}, arity = "1..*", description = "Download the remote file", paramLabel = "<name>")
         String[] download;
@@ -59,13 +63,11 @@ public class CommandHandler implements Runnable {
         @Option(names = {"-r", "--remove"}, arity = "1..*", description = "Permanently removes the remote file", paramLabel = "<id>")
         List<String> remove;
 
-        static class Upload {
-            @Option(names = {"-c", "--compress"}, description = "Compressed before uploading, currently uses Zip format")
-            boolean compression;
+        @Option(names = {"-e", "--clone"}, arity = "1..*", description = "Clones the remote file ID to Google Sheets", paramLabel = "<id>")
+        List<String> clone;
 
-            @Option(names = {"-u", "--upload"}, arity = "1..*", description = "Upload the local file", paramLabel = "<file>")
-            File[] files;
-        }
+        @Option(names = {"-u", "--upload"}, arity = "1..*", description = "Upload the local file", paramLabel = "<file>")
+        File[] upload;
     }
 
     @Override
@@ -98,6 +100,11 @@ public class CommandHandler implements Runnable {
             remove();
             return;
         }
+
+        if (param.clone != null) {
+            cloneFiles();
+            return;
+        }
     }
 
     private void list() {
@@ -124,10 +131,10 @@ public class CommandHandler implements Runnable {
     private void upload() {
         long start = System.currentTimeMillis();
         var upload = param.upload;
-        for (var file : upload.files) {
+        for (var file : upload) {
             uploadFile(file);
         }
-        LOGGER.info("Finished the uploading of {} file{} in {}ms", upload.files.length, upload.files.length == 1 ? "" : "s", System.currentTimeMillis() - start);
+        LOGGER.info("Finished the uploading of {} file{} in {}ms", upload.length, upload.length == 1 ? "" : "s", System.currentTimeMillis() - start);
     }
 
     private void uploadFile(File file) {
@@ -144,7 +151,7 @@ public class CommandHandler implements Runnable {
             long start = System.currentTimeMillis();
             var name = FilenameUtils.getName(file.getAbsolutePath());
 
-            var ups = sheetIO.uploadData(name, param.upload.compression, new FileInputStream(file).readAllBytes());
+            var ups = sheetIO.uploadData(name, compression, new FileInputStream(file).readAllBytes());
 
             LOGGER.info("Uploaded {} in {}ms", ups.getId(), System.currentTimeMillis() - start);
         } catch (IOException e) {
@@ -192,6 +199,11 @@ public class CommandHandler implements Runnable {
 
     private void remove() {
         param.remove.forEach(docStore.getSheetManager().getSheetIO()::deleteData);
+    }
+
+    private void cloneFiles() { // 1BEC7wGs6depFiZQ3t2CK9JFXCIvCtv8A
+        var io = docStore.getSheetManager().getSheetIO();
+        param.clone.forEach(id -> io.cloneFile(id, compression));
     }
 
     public static int getSheetCount(com.google.api.services.drive.model.File file) {

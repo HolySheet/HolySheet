@@ -151,30 +151,48 @@ public class SocketCommunication {
                     case UPLOAD_REQUEST:
                         var uploadRequest = GSON.fromJson(input, UploadRequest.class);
 
-                        LOGGER.info("Got upload request for {}", uploadRequest.getFile());
+                        LOGGER.info("Got upload request for {} or {}", uploadRequest.getFile(), uploadRequest.getId());
 
-                        var file = new File(uploadRequest.getFile());
+                        String name;
+                        byte[] data;
 
-                        if (!file.isFile()) {
-                            LOGGER.error("File '{}' does not exist!", file.getAbsolutePath());
-                            sendData(socket, new ErrorPayload("File '" + file.getAbsolutePath() + "' does not exist", state, Utility.getStackTrace()));
-                            return;
+                        if (uploadRequest.getFile() != null) {
+                            var file = new File(uploadRequest.getFile());
+
+                            if (!file.isFile()) {
+                                LOGGER.error("File '{}' does not exist!", file.getAbsolutePath());
+                                sendData(socket, new ErrorPayload("File '" + file.getAbsolutePath() + "' does not exist", state, Utility.getStackTrace()));
+                                return;
+                            }
+
+                            name = FilenameUtils.getName(file.getAbsolutePath());
+                            data = new FileInputStream(file).readAllBytes();
+                        } else {
+                            var dataOptional = sheetIO.downloadFile(uploadRequest.getId());
+                            if (dataOptional.isPresent()) {
+                                var fileData = dataOptional.get();
+                                name = fileData.getFile().getName();
+                                data = fileData.getOut().toByteArray();
+                            } else {
+                                LOGGER.error("Error downloading file '{}' to be cloned", uploadRequest.getId());
+                                sendData(socket, new ErrorPayload("Error downloading file '" + uploadRequest.getId() + "' to be cloned", state, Utility.getStackTrace()));
+                                return;
+                            }
                         }
 
-                        LOGGER.info("Uploading {}...", file.getName());
+                        LOGGER.info("Uploading {}...", name);
 
                         long start = System.currentTimeMillis();
-                        var name = FilenameUtils.getName(file.getAbsolutePath());
 
                         sendData(socket, new UploadStatusResponse(1, "Success", state, "PENDING", 0, Collections.emptyList()));
 
-                        var uploaded = sheetIO.uploadData(name, !uploadRequest.getCompression().equals("none"), new FileInputStream(file).readAllBytes(), percentage ->
+                        var uploaded = sheetIO.uploadData(name, !uploadRequest.getCompression().equals("none"), data, percentage ->
                                 sendData(socket, new UploadStatusResponse(1, "Success", state, "UPLOADING", percentage, Collections.emptyList())));
 
                         LOGGER.info("Uploaded {} in {}ms", uploaded.getId(), System.currentTimeMillis() - start);
 
                         sendData(socket, new UploadStatusResponse(1, "Success", state, "COMPLETE", 1, Collections.singletonList(
-                                new ListItem(file.getName(), CommandHandler.getSize(uploaded), CommandHandler.getSheetCount(uploaded), uploaded.getModifiedTime().getValue(), uploaded.getId()))));
+                                new ListItem(name, CommandHandler.getSize(uploaded), CommandHandler.getSheetCount(uploaded), uploaded.getModifiedTime().getValue(), uploaded.getId()))));
                         break;
                     case DOWNLOAD_REQUEST:
                         var downloadRequest = GSON.fromJson(input, DownloadRequest.class);
