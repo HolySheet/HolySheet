@@ -81,6 +81,8 @@ public class JShellRemote {
                 "java.lang.*",
                 "java.util.*",
                 "java.io.*",
+                "java.awt.*",
+                "java.awt.datatransfer.*",
                 "javax.swing.*",
                 "java.util.Map",
                 "java.util.Collections",
@@ -105,9 +107,13 @@ public class JShellRemote {
                     continue;
                 }
 
-                var request = entry.getKey();
-                var response = runCode(request.getState(), request.getInvokeCode(), request.getReturnVariables());
-                entry.getValue().accept(response);
+                try {
+                    var request = entry.getKey();
+                    var response = runCode(request.getState(), request.getInvokeCode(), request.getReturnVariables());
+                    entry.getValue().accept(response);
+                } catch (Exception e) {
+                    LOGGER.error("An exception occurred", e);
+                }
             }
         });
     }
@@ -171,12 +177,12 @@ public class JShellRemote {
                 var value = sne.value();
                 var snippet = sne.snippet();
                 if (exception != null) {
-                    return new ErrorPayload("Error occurred", state, ExceptionUtils.getStackTrace(exception));
+                    return new ErrorPayload("Error occurred", state, Utility.getStackTrace(exception));
                 } else if (sne.status() == Snippet.Status.REJECTED) {
                     var message = getDiagnostics(snippet).map(diagnostics ->
                             joinDiagnostics(snippet.source(), diagnostics))
                             .orElse("Rejected for unknown reasons");
-                    return new ErrorPayload(message, state, ExceptionUtils.getStackTrace(new RuntimeException()));
+                    return new ErrorPayload(message, state, Utility.getStackTrace());
                 } else if (value != null) {
                     if (snippet.kind() == Snippet.Kind.VAR) {
                         getKey(snippet).ifPresent(retrieved::add);

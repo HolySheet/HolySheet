@@ -29,11 +29,11 @@ public class Utility {
     }
 
     public static String getStackTrace() {
-        return ExceptionUtils.getStackTrace(new RuntimeException());
+        return ExceptionUtils.getStackTrace(new RuntimeException()).replace("\r\n", "\n");
     }
 
     public static String getStackTrace(Throwable throwable) {
-        return ExceptionUtils.getStackTrace(throwable);
+        return ExceptionUtils.getStackTrace(throwable).replace("\r\n", "\n");
     }
 
     /**
