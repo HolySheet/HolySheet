@@ -150,7 +150,8 @@ A request to upload a given file. Either `file` or `id` may be defined below, ho
 {
     "file": "file:///c:/file.txt",
     "upload": "multipart",
-    "compression": "zip"
+    "compression": "zip",
+    "sheetSize": "10000000"
 }
 ```
 
@@ -160,6 +161,7 @@ A request to upload a given file. Either `file` or `id` may be defined below, ho
 | id          | String                | The Google Drive ID of the file to download and upload       |
 | upload      | `(multipart\|direct)` | Toggles multipart or direct uploading (Multipart recommended) |
 | compression | `(none\|zip)`         | The compression algorithm to use, if any.                    |
+| sheetSize   | Integer               | The max size (in bytes) each sheet can be. There is no max to this documented by Google, however in private testing RubbaBoy was able to achieve up to 25.9MB without 500's, however is often limited for long time periods down to 10MB. |
 
 
 

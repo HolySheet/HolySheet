@@ -24,9 +24,6 @@ public class SheetManager {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SheetManager.class);
 
-    private static final int MB = 0x100000;
-    private static final double MAX_SHEET_SIZE = 25 * MB;
-
     private final DocStore docStore;
     private final Drive drive;
     private final Sheets sheets;

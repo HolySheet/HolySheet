@@ -115,8 +115,8 @@ public class EncodingOutputStream extends FilterOutputStream {
         return chunks;
     }
 
-    public static EncodingOutputStream encode(byte[] data, int maxLines) throws IOException {
-        var encodingOut = new EncodingOutputStream(maxLines);
+    public static EncodingOutputStream encode(byte[] data, int maxLength) throws IOException {
+        var encodingOut = new EncodingOutputStream(maxLength);
         encodingOut.write(data);
         encodingOut.flush();
         return encodingOut;

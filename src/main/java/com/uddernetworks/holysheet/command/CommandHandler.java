@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
 import static com.uddernetworks.holysheet.utility.Utility.humanReadableByteCountSI;
 
 @CommandLine.Command(name = "example", mixinStandardHelpOptions = true, version = "DriveStore 1.0.0", customSynopsis = {
-        "([-c] -u=<file>... | -d=<name/id>... |  -r=<name/id>...) [-hlV]"
+        "([-cm] -u=<file>... | [-cm] -e=<id> | -d=<name/id>... |  -r=<name/id>...) [-shlV]"
 })
 public class CommandHandler implements Runnable {
 
@@ -45,6 +45,9 @@ public class CommandHandler implements Runnable {
     @Option(names = {"-c", "--compress"}, description = "Compressed before uploading, currently uses Zip format")
     boolean compression;
 
+    @Option(names = {"-m", "--sheetSize"}, defaultValue = "10000000", description = "The maximum size in bytes a single sheet can be. Defaults to 10MB")
+    int sheetSize;
+
     @ArgGroup(multiplicity = "0..1")
     RequiresParam param;
 
@@ -53,9 +56,6 @@ public class CommandHandler implements Runnable {
     }
 
     static class RequiresParam {
-
-//        @ArgGroup(exclusive = false, multiplicity = "1")
-//        Upload upload;
 
         @Option(names = {"-d", "--download"}, arity = "1..*", description = "Download the remote file", paramLabel = "<name>")
         String[] download;
@@ -151,7 +151,7 @@ public class CommandHandler implements Runnable {
             long start = System.currentTimeMillis();
             var name = FilenameUtils.getName(file.getAbsolutePath());
 
-            var ups = sheetIO.uploadData(name, compression, new FileInputStream(file).readAllBytes());
+            var ups = sheetIO.uploadData(name, sheetSize, compression, new FileInputStream(file).readAllBytes());
 
             LOGGER.info("Uploaded {} in {}ms", ups.getId(), System.currentTimeMillis() - start);
         } catch (IOException e) {
@@ -201,9 +201,9 @@ public class CommandHandler implements Runnable {
         param.remove.forEach(docStore.getSheetManager().getSheetIO()::deleteData);
     }
 
-    private void cloneFiles() { // 1BEC7wGs6depFiZQ3t2CK9JFXCIvCtv8A
+    private void cloneFiles() {
         var io = docStore.getSheetManager().getSheetIO();
-        param.clone.forEach(id -> io.cloneFile(id, compression));
+        param.clone.forEach(id -> io.cloneFile(id, sheetSize, compression));
     }
 
     public static int getSheetCount(com.google.api.services.drive.model.File file) {

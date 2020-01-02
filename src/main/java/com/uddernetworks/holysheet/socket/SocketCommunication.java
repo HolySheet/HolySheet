@@ -186,7 +186,7 @@ public class SocketCommunication {
 
                         sendData(socket, new UploadStatusResponse(1, "Success", state, "PENDING", 0, Collections.emptyList()));
 
-                        var uploaded = sheetIO.uploadData(name, !uploadRequest.getCompression().equals("none"), data, percentage ->
+                        var uploaded = sheetIO.uploadData(name, uploadRequest.getSheetSize(), !uploadRequest.getCompression().equals("none"), data, percentage ->
                                 sendData(socket, new UploadStatusResponse(1, "Success", state, "UPLOADING", percentage, Collections.emptyList())));
 
                         LOGGER.info("Uploaded {} in {}ms", uploaded.getId(), System.currentTimeMillis() - start);

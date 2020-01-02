@@ -38,8 +38,8 @@ public class SheetIO {
 
     private static final int STAGGER_MS = 5000;
 
-    private static final int MB = 1000000;
-    private static final int MAX_SHEET_SIZE = 10 * MB;
+//    private static final int MB = 1000000;
+//    private static final int MAX_SHEET_SIZE = 10 * MB;
 
     private final SheetManager sheetManager;
     private final Drive drive;
@@ -125,16 +125,16 @@ public class SheetIO {
         }
     }
 
-    public File uploadData(String title, boolean compress, byte[] data) throws IOException {
-        return uploadData(title, compress, data, null);
+    public File uploadData(String title, int maxSheetSize, boolean compress, byte[] data) throws IOException {
+        return uploadData(title, maxSheetSize, compress, data, null);
     }
 
-    public File uploadData(String title, boolean compress, byte[] data, Consumer<Double> statusUpdate) throws IOException {
+    public File uploadData(String title, int maxSheetSize, boolean compress, byte[] data, Consumer<Double> statusUpdate) throws IOException {
         if (compress) {
             data = CompressionUtils.compress(data);
         }
 
-        var encoded = EncodingOutputStream.encode(data, MAX_SHEET_SIZE);
+        var encoded = EncodingOutputStream.encode(data, maxSheetSize);
         var byteArrayList = encoded.getChunks();
 
         LOGGER.info("Encoded from {} - {} ({}% overhead)", humanReadableByteCountSI(data.length), humanReadableByteCountSI(encoded.getLength()), round((encoded.getLength() - data.length) / (double) data.length * 100D, 2));
@@ -274,7 +274,7 @@ public class SheetIO {
         }
     }
 
-    public void cloneFile(String fileId, boolean compress) {
+    public void cloneFile(String fileId, int maxSheetSize, boolean compress) {
         downloadFile(fileId).ifPresent(fileData -> {
             var file = fileData.getFile();
             var out = fileData.getOut();
@@ -284,7 +284,7 @@ public class SheetIO {
             LOGGER.info("Saving {}...", name);
 
             try {
-                uploadData(name, compress, out.toByteArray());
+                uploadData(name, maxSheetSize, compress, out.toByteArray());
             } catch (IOException e) {
                 LOGGER.error("An error occurred while uploading the " + fileId, e);
             }
