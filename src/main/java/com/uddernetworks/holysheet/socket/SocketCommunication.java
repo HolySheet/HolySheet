@@ -37,6 +37,7 @@ import java.util.Scanner;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 public class SocketCommunication {
@@ -48,12 +49,10 @@ public class SocketCommunication {
             .registerTypeAdapter(PayloadType.class, new PayloadTypeAdapter())
             .create();
 
-    private static final int PORT = 4567;
-
     private final DocStore docStore;
     private final SheetManager sheetManager;
     private ServerSocket serverSocket;
-    private final AtomicReference<Socket> lastClient = new AtomicReference<Socket>(); // The most recently active client
+    private final AtomicReference<Socket> lastClient = new AtomicReference<>(); // The most recently active client
 
     private List<BiConsumer<Socket, String>> receivers = Collections.synchronizedList(new ArrayList<>());
 
@@ -62,11 +61,20 @@ public class SocketCommunication {
         this.sheetManager = docStore.getSheetManager();
     }
 
-    public void start() {
-        LOGGER.info("Starting payload on port {}...", PORT);
+    public void listenIO() {
+        LOGGER.info("Listening for console input...");
+
+        var in = new Scanner(System.in);
+        for (String line; (line = in.nextLine()) != null; ) {
+            handleRequest(data -> System.out.println(GSON.toJson(data)), line);
+        }
+    }
+
+    public void startSocket(int port) {
+        LOGGER.info("Starting payload on port {}...", port);
 
         try {
-            serverSocket = new ServerSocket(PORT);
+            serverSocket = new ServerSocket(port);
 
             while (true) {
                 var socket = serverSocket.accept();
@@ -83,7 +91,7 @@ public class SocketCommunication {
                             final var input = line;
                             lastClient.set(socket);
                             receivers.forEach(consumer -> consumer.accept(socket, input));
-                            handleRequest(socket, input);
+                            handleRequest(data -> sendData(socket, data), input);
                         }
                     } catch (IOException e) {
                         LOGGER.error("An error occurred while reading/writing to socket", e);
@@ -91,7 +99,7 @@ public class SocketCommunication {
                 });
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            LOGGER.error("An error occurred while starting socket", e);
         }
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
@@ -112,7 +120,7 @@ public class SocketCommunication {
         sendData(client, payload);
     }
 
-    private void handleRequest(Socket socket, String input) {
+    private void handleRequest(Consumer<Object> sendData, String input) {
         CompletableFuture.runAsync(() -> {
             var basicPayload = GSON.fromJson(input, BasicPayload.class);
             try {
@@ -126,7 +134,7 @@ public class SocketCommunication {
 
                 if (!type.isReceivable()) {
                     LOGGER.error("Received unreceivable payload type: {}", type.name());
-                    sendData(socket, new ErrorPayload("Received unreceivable payload type: " + type.name(), state, Utility.getStackTrace()));
+                    sendData.accept(new ErrorPayload("Received unreceivable payload type: " + type.name(), state, Utility.getStackTrace()));
                     return;
                 }
 
@@ -146,7 +154,7 @@ public class SocketCommunication {
                                     .collect(Collectors.toUnmodifiableList());
                         }
 
-                        sendData(socket, new ListResponse(1, "Success", state, uploads));
+                        sendData.accept(new ListResponse(1, "Success", state, uploads));
                         break;
                     case UPLOAD_REQUEST:
                         var uploadRequest = GSON.fromJson(input, UploadRequest.class);
@@ -161,7 +169,7 @@ public class SocketCommunication {
 
                             if (!file.isFile()) {
                                 LOGGER.error("File '{}' does not exist!", file.getAbsolutePath());
-                                sendData(socket, new ErrorPayload("File '" + file.getAbsolutePath() + "' does not exist", state, Utility.getStackTrace()));
+                                sendData.accept(new ErrorPayload("File '" + file.getAbsolutePath() + "' does not exist", state, Utility.getStackTrace()));
                                 return;
                             }
 
@@ -175,7 +183,7 @@ public class SocketCommunication {
                                 data = fileData.getOut().toByteArray();
                             } else {
                                 LOGGER.error("Error downloading file '{}' to be cloned", uploadRequest.getId());
-                                sendData(socket, new ErrorPayload("Error downloading file '" + uploadRequest.getId() + "' to be cloned", state, Utility.getStackTrace()));
+                                sendData.accept(new ErrorPayload("Error downloading file '" + uploadRequest.getId() + "' to be cloned", state, Utility.getStackTrace()));
                                 return;
                             }
                         }
@@ -184,14 +192,14 @@ public class SocketCommunication {
 
                         long start = System.currentTimeMillis();
 
-                        sendData(socket, new UploadStatusResponse(1, "Success", state, "PENDING", 0, Collections.emptyList()));
+                        sendData.accept(new UploadStatusResponse(1, "Success", state, "PENDING", 0, Collections.emptyList()));
 
-                        var uploaded = sheetIO.uploadData(name, uploadRequest.getSheetSize(), !uploadRequest.getCompression().equals("none"), data, percentage ->
-                                sendData(socket, new UploadStatusResponse(1, "Success", state, "UPLOADING", percentage, Collections.emptyList())));
+                        var uploaded = sheetIO.uploadData(name, uploadRequest.getSheetSize(), !uploadRequest.getCompression().equals("none"), uploadRequest.getUpload(), data, percentage ->
+                                sendData.accept(new UploadStatusResponse(1, "Success", state, "UPLOADING", percentage, Collections.emptyList())));
 
                         LOGGER.info("Uploaded {} in {}ms", uploaded.getId(), System.currentTimeMillis() - start);
 
-                        sendData(socket, new UploadStatusResponse(1, "Success", state, "COMPLETE", 1, Collections.singletonList(
+                        sendData.accept(new UploadStatusResponse(1, "Success", state, "COMPLETE", 1, Collections.singletonList(
                                 new ListItem(name, CommandHandler.getSize(uploaded), CommandHandler.getSheetCount(uploaded), uploaded.getModifiedTime().getValue(), uploaded.getId()))));
                         break;
                     case DOWNLOAD_REQUEST:
@@ -204,7 +212,7 @@ public class SocketCommunication {
 
                         if (sheet == null) {
                             LOGGER.error("No file could be found with the given ID \"" + id + "\"");
-                            sendData(socket, new ErrorPayload("No file could be found with the given ID \"" + id + "\"", state, Utility.getStackTrace()));
+                            sendData.accept(new ErrorPayload("No file could be found with the given ID \"" + id + "\"", state, Utility.getStackTrace()));
                             return;
                         }
 
@@ -213,22 +221,22 @@ public class SocketCommunication {
 
                         if (!parent.exists() || !parent.mkdirs()) {
                             LOGGER.error("Couldn't find or create parent of \"" + parent.getAbsolutePath() + "\"");
-                            sendData(socket, new ErrorPayload("Couldn't find or create parent of \"" + parent.getAbsolutePath() + "\"", state, Utility.getStackTrace()));
+                            sendData.accept(new ErrorPayload("Couldn't find or create parent of \"" + parent.getAbsolutePath() + "\"", state, Utility.getStackTrace()));
                             return;
                         }
 
-                        sendData(socket, new DownloadStatusResponse(1, "Success", state, "PENDING", 0));
+                        sendData.accept(new DownloadStatusResponse(1, "Success", state, "PENDING", 0));
 
                         try (var fileStream = new FileOutputStream(destination)) {
                             sheetManager.getSheetIO().downloadData(id, percentage ->
-                                    sendData(socket, new DownloadStatusResponse(1, "Success", state, "UPLOADING", percentage)), error ->
-                                    sendData(socket, new ErrorPayload(error, state, Utility.getStackTrace())), bytes -> {
+                                    sendData.accept(new DownloadStatusResponse(1, "Success", state, "UPLOADING", percentage)), error ->
+                                    sendData.accept(new ErrorPayload(error, state, Utility.getStackTrace())), bytes -> {
                                 try {
                                     fileStream.write(bytes.toByteArray());
 
                                     LOGGER.info("Downloaded in {}ms", System.currentTimeMillis() - start);
 
-                                    sendData(socket, new DownloadStatusResponse(1, "Success", state, "COMPLETE", 1));
+                                    sendData.accept(new DownloadStatusResponse(1, "Success", state, "COMPLETE", 1));
                                 } catch (IOException e) {
                                     throw new UncheckedIOException(e);
                                 }
@@ -240,28 +248,27 @@ public class SocketCommunication {
 
                         LOGGER.info("Got remove request for {}", removeRequest.getId());
 
-                        sendData(socket, new RemoveStatusResponse(1, "Success", state, "PENDING", 0));
+                        sendData.accept(new RemoveStatusResponse(1, "Success", state, "PENDING", 0));
 
                         sheetIO.deleteData(removeRequest.getId(), false, error ->
-                                sendData(socket, new ErrorPayload(error, state, Utility.getStackTrace())), () ->
-                                sendData(socket, new RemoveStatusResponse(1, "Success", state, "COMPLETE", 1)));
+                                sendData.accept(new ErrorPayload(error, state, Utility.getStackTrace())), () ->
+                                sendData.accept(new RemoveStatusResponse(1, "Success", state, "COMPLETE", 1)));
                         break;
                     case CODE_EXECUTION_REQUEST:
                         var codeExecutionRequest = GSON.fromJson(input, CodeExecutionRequest.class);
 
                         LOGGER.info("Got code execution request");
 
-                        docStore.getjShellRemote().queueRequest(codeExecutionRequest, response ->
-                                sendData(socket, response));
+                        docStore.getjShellRemote().queueRequest(codeExecutionRequest, sendData::accept);
                         break;
                     default:
                         LOGGER.error("Unsupported type: {}", basicPayload.getType().name());
-                        sendData(socket, new ErrorPayload("Unsupported type: " + basicPayload.getType().name(), basicPayload.getState(), ExceptionUtils.getStackTrace(new RuntimeException())));
+                        sendData.accept(new ErrorPayload("Unsupported type: " + basicPayload.getType().name(), basicPayload.getState(), ExceptionUtils.getStackTrace(new RuntimeException())));
                         break;
                 }
             } catch (Exception e) { // Catching Exception only for error reporting back to GUI/Other client
                 LOGGER.error("Exception while parsing client received data", e);
-                sendData(socket, new ErrorPayload(e.getMessage(), basicPayload.getState(), ExceptionUtils.getStackTrace(e)));
+                sendData.accept(new ErrorPayload(e.getMessage(), basicPayload.getState(), ExceptionUtils.getStackTrace(e)));
             }
         }).exceptionally(t -> {
             LOGGER.error("Exception while parsing client received data", t);
@@ -273,17 +280,12 @@ public class SocketCommunication {
         receivers.add(receiver);
     }
 
-    public static void sendDataAsync(Socket socket, String data) {
-        CompletableFuture.runAsync(() -> sendData(socket, data));
-    }
-
     public static void sendData(Socket socket, Object object) {
         sendData(socket, GSON.toJson(object));
     }
 
     public static void sendData(Socket socket, String data) {
         try {
-            System.out.println(data);
             var out = socket.getOutputStream();
             out.write(data.getBytes());
             out.flush();
@@ -291,5 +293,4 @@ public class SocketCommunication {
             throw new UncheckedIOException(e);
         }
     }
-
 }

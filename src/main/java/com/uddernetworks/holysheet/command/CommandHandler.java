@@ -13,20 +13,21 @@ import picocli.CommandLine.Option;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.uddernetworks.holysheet.utility.Utility.humanReadableByteCountSI;
 
 @CommandLine.Command(name = "example", mixinStandardHelpOptions = true, version = "DriveStore 1.0.0", customSynopsis = {
-        "([-cm] -u=<file>... | [-cm] -e=<id> | -d=<name/id>... |  -r=<name/id>...) [-shlV]"
+        "([-cm] -u=<file>... | [-cm] -e=<id> | -d=<name/id>... |  -r=<name/id>...) [-siphlV]"
 })
 public class CommandHandler implements Runnable {
 
@@ -41,6 +42,12 @@ public class CommandHandler implements Runnable {
 
     @Option(names = {"-s", "--socket"}, description = "Starts communication socket on the given port, used to interface with other apps")
     int socket = -1;
+
+    @Option(names = {"-i", "--io"}, description = "Starts communication via console ")
+    boolean io = false;
+
+    @Option(names = {"-p", "--parent"}, description = "Kills the process (When running with socket) when the given PID is killed")
+    int parent = -1;
 
     @Option(names = {"-c", "--compress"}, description = "Compressed before uploading, currently uses Zip format")
     boolean compression;
@@ -74,9 +81,16 @@ public class CommandHandler implements Runnable {
     public void run() {
         docStore.init();
 
-        if (socket > 0) {
+        if (socket > 0 || io) {
+            suicideForParent(parent);
             docStore.getjShellRemote().start();
-            docStore.getSocketCommunication().start();
+
+            if (io) {
+                docStore.getSocketCommunication().listenIO();
+            } else {
+                docStore.getSocketCommunication().startSocket(socket);
+            }
+
             Utility.sleep(Long.MAX_VALUE);
             return;
         }
@@ -151,7 +165,7 @@ public class CommandHandler implements Runnable {
             long start = System.currentTimeMillis();
             var name = FilenameUtils.getName(file.getAbsolutePath());
 
-            var ups = sheetIO.uploadData(name, sheetSize, compression, new FileInputStream(file).readAllBytes());
+            var ups = sheetIO.uploadData(name, sheetSize, compression, "multipart", new FileInputStream(file).readAllBytes());
 
             LOGGER.info("Uploaded {} in {}ms", ups.getId(), System.currentTimeMillis() - start);
         } catch (IOException e) {
@@ -204,6 +218,20 @@ public class CommandHandler implements Runnable {
     private void cloneFiles() {
         var io = docStore.getSheetManager().getSheetIO();
         param.clone.forEach(id -> io.cloneFile(id, sheetSize, compression));
+    }
+
+    private void suicideForParent(int parent) {
+        if (parent == -1) {
+            return;
+        }
+
+        Executors.newSingleThreadScheduledExecutor().scheduleAtFixedRate(() -> {
+            var processOptional = ProcessHandle.of(parent);
+            if (processOptional.isEmpty()) {
+                LOGGER.info("No PID found of {}. Terminating...", parent);
+                System.exit(0);
+            }
+        }, 1, 3, TimeUnit.SECONDS);
     }
 
     public static int getSheetCount(com.google.api.services.drive.model.File file) {

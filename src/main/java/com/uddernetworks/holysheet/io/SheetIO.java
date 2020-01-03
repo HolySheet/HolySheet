@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Scanner;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -125,11 +126,11 @@ public class SheetIO {
         }
     }
 
-    public File uploadData(String title, int maxSheetSize, boolean compress, byte[] data) throws IOException {
-        return uploadData(title, maxSheetSize, compress, data, null);
+    public File uploadData(String title, int maxSheetSize, boolean compress, String uploadType, byte[] data) throws IOException {
+        return uploadData(title, maxSheetSize, compress, uploadType, data, null);
     }
 
-    public File uploadData(String title, int maxSheetSize, boolean compress, byte[] data, Consumer<Double> statusUpdate) throws IOException {
+    public File uploadData(String title, int maxSheetSize, boolean compress, String uploadType, byte[] data, Consumer<Double> statusUpdate) throws IOException {
         if (compress) {
             data = CompressionUtils.compress(data);
         }
@@ -158,21 +159,28 @@ public class SheetIO {
 
         LOGGER.info("Processing {} chunks", chunks.size());
 
-        processChunks(chunks, parent, title, encoded.getLength(), statusUpdate);
+        long start = System.currentTimeMillis();
+
+        processChunks(chunks, parent, uploadType, title, encoded.getLength(), statusUpdate);
+
+        double durationSeconds = (System.currentTimeMillis() - start) / 1000D;
+        long bps = (long) ((double) encoded.getLength() / durationSeconds);
+        LOGGER.info("Finished upload at a rate of {}/s", humanReadableByteCountSI(bps));
 
         return parent;
     }
 
-    private Map<FileChunk, File> processChunks(List<FileChunk> chunks, File parent, String title, long size, Consumer<Double> statusUpdate) {
+    private Map<FileChunk, File> processChunks(List<FileChunk> chunks, File parent, String uploadType, String title, long size, Consumer<Double> statusUpdate) {
         var index = new AtomicInteger();
+        var totalBytesUploaded = new AtomicLong();
         final double totalChunks = chunks.size();
         var map = chunks.stream().collect(Collectors.toMap(c -> c, c -> {
             if (statusUpdate != null) {
-                statusUpdate.accept(index.getAndIncrement() / totalChunks);
+                statusUpdate.accept(index.get() / totalChunks);
             }
 
-            printProgress(title, c.getBytes().length, size, index.getAndIncrement(), chunks.size());
-            return processChunk(c, parent);
+            printProgress(title, totalBytesUploaded.getAndAdd(c.getBytes().length), size, index.getAndIncrement(), chunks.size());
+            return processChunk(c, parent, uploadType);
         }));
 
         if (statusUpdate != null) {
@@ -187,12 +195,12 @@ public class SheetIO {
         System.out.println(Utility.progressBar("Uploading " + title, humanReadableByteCountSI(currSize) + "/" + humanReadableByteCountSI(totalSize), 40, index / (double) total));
     }
 
-    private File processChunk(FileChunk chunk, File parent) {
+    private File processChunk(FileChunk chunk, File parent, String uploadType) {
         try {
             // Stagger uploads STAGGER_MS ms
 //            sleep(chunk.getIndex() * STAGGER_MS);
 
-            LOGGER.info("Processing chunk #{} ({})", chunk.getIndex(), humanReadableByteCountSI(chunk.getBytes().length));
+//            LOGGER.info("Processing chunk #{} ({})", chunk.getIndex(), humanReadableByteCountSI(chunk.getBytes().length));
             var content = new ByteArrayContent("text/tab-separated-values", chunk.getBytes());
             var request = drive.files().create(new File()
                     .setMimeType(Mime.SHEET.getMime())
@@ -201,16 +209,17 @@ public class SheetIO {
                     .setParents(Collections.singletonList(parent.getId())), content)
                     .setFields("id");
 
-            // TODO: Enable/disable multipart and direct uploading
-//            request.getMediaHttpUploader().setDirectUploadEnabled()
             request.getMediaHttpUploader()
-                    .setChunkSize(5 * 0x100000); // 5MB (Default 10)
+                    .setDirectUploadEnabled("direct".equals(uploadType))
+                    .setChunkSize(20 * 0x100000); // 20MB (Default 10)
+
             return request.execute();
         } catch (IOException e) {
             throw new UncheckedIOException(e);
-        } finally {
-            LOGGER.info("Done processing #{}", chunk.getIndex());
         }
+//        finally {
+//            LOGGER.info("Done processing #{}", chunk.getIndex());
+//        }
     }
 
     public void deleteData(String id) {
@@ -284,7 +293,7 @@ public class SheetIO {
             LOGGER.info("Saving {}...", name);
 
             try {
-                uploadData(name, maxSheetSize, compress, out.toByteArray());
+                uploadData(name, maxSheetSize, compress, "multipart", out.toByteArray());
             } catch (IOException e) {
                 LOGGER.error("An error occurred while uploading the " + fileId, e);
             }

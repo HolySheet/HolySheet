@@ -20,6 +20,7 @@ public class Utility {
         if (!beforePercent.isBlank() && !beforePercent.startsWith(" ")) beforePercent = " " + beforePercent;
         var line = text + " [";
 
+        percent = Math.min(1, percent);
         int filled = (int) Math.round(width * percent);
 
         line += "|".repeat(filled);
