@@ -5,5 +5,5 @@ build
 *.log
 
 credentials.json
-tokens
+private
 upload

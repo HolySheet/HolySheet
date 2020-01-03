@@ -27,14 +27,18 @@ public class DocStore {
     }
 
     private void start(String[] args) {
+        if (args.length == 0) {
+            args = new String[]{"-h"};
+        }
+
         System.exit(new CommandLine(new CommandHandler(this)).execute(args));
     }
 
-    public void init() {
+    public void init(String credentialPath) {
         try {
             LOGGER.info("Initializing everything...");
 
-            authManager = new AuthManager();
+            authManager = new AuthManager(credentialPath);
             authManager.initialize();
             drive = authManager.getDrive();
             sheets = authManager.getSheets();

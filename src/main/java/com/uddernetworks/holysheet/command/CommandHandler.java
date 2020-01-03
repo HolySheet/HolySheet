@@ -27,7 +27,7 @@ import java.util.stream.Collectors;
 import static com.uddernetworks.holysheet.utility.Utility.humanReadableByteCountSI;
 
 @CommandLine.Command(name = "example", mixinStandardHelpOptions = true, version = "DriveStore 1.0.0", customSynopsis = {
-        "([-cm] -u=<file>... | [-cm] -e=<id> | -d=<name/id>... |  -r=<name/id>...) [-siphlV]"
+        "([-cm] -u=<file>... | [-cm] -e=<id> | -d=<name/id>... |  -r=<name/id>...) [-asiphlV]"
 })
 public class CommandHandler implements Runnable {
 
@@ -39,6 +39,9 @@ public class CommandHandler implements Runnable {
 
     @Option(names = {"-l", "--list"}, description = "Lists the uploaded files in Google Sheets")
     boolean list;
+
+    @Option(names = {"-a", "--credentials"}, description = "The (absolute or relative) location of your personal credentials.json file")
+    String credentials = "credentials.json";
 
     @Option(names = {"-s", "--socket"}, description = "Starts communication socket on the given port, used to interface with other apps")
     int socket = -1;
@@ -79,10 +82,11 @@ public class CommandHandler implements Runnable {
 
     @Override
     public void run() {
-        docStore.init();
+        suicideForParent(parent);
+
+        docStore.init(credentials);
 
         if (socket > 0 || io) {
-            suicideForParent(parent);
             docStore.getjShellRemote().start();
 
             if (io) {

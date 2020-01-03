@@ -22,7 +22,10 @@ import com.google.api.services.sheets.v4.SheetsScopes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.security.GeneralSecurityException;
@@ -33,12 +36,16 @@ public class AuthManager {
 
     private static final String APPLICATION_NAME = "DocStore";
     private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
-    private static final String TOKENS_DIRECTORY_PATH = "tokens";
+    private static final String TOKENS_DIRECTORY_PATH = "private";
     private static final List<String> SCOPES = List.of(DriveScopes.DRIVE, SheetsScopes.SPREADSHEETS);
-    private static final String CREDENTIALS_FILE_PATH = "/credentials.json";
+    private final String credentialPath;
 
     private Drive drive;
     private Sheets sheets;
+
+    public AuthManager(String credentialPath) {
+        this.credentialPath = credentialPath;
+    }
 
     public void initialize() throws GeneralSecurityException, IOException {
         final NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
@@ -69,11 +76,12 @@ public class AuthManager {
     }
 
     private Credential getCredentials(NetHttpTransport HTTP_TRANSPORT) throws IOException {
-        var in = DocStore.class.getResourceAsStream(CREDENTIALS_FILE_PATH);
-        if (in == null) {
-            throw new FileNotFoundException("Resource not found: " + CREDENTIALS_FILE_PATH);
+        var file = new File(credentialPath);
+        LOGGER.info("Full path: {}", file.getAbsolutePath());
+        if (!file.exists()) {
+            throw new FileNotFoundException("Couldn't find credentials file " + credentialPath);
         }
-        var clientSecrets = GoogleClientSecrets.load(JSON_FACTORY, new InputStreamReader(in));
+        var clientSecrets = GoogleClientSecrets.load(JSON_FACTORY, new FileReader(file));
 
         var flow = new GoogleAuthorizationCodeFlow.Builder(
                 HTTP_TRANSPORT, JSON_FACTORY, clientSecrets, SCOPES)

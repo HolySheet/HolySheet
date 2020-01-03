@@ -42,7 +42,7 @@ run {
     standardInput = System.in
     jvmArgs("--add-opens", "jdk.jshell/jdk.jshell=ALL-UNNAMED")
 
-    args = ['-s', '4567']
+//    args = ['-s', '4567']
 }
 
 compileJava {
