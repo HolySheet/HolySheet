@@ -1,5 +1,6 @@
 package com.uddernetworks.holysheet.socket;
 
+import com.google.api.services.drive.model.User;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.uddernetworks.holysheet.DocStore;
@@ -150,7 +151,18 @@ public class SocketCommunication {
                         synchronized (this.sheetManager) {
                             uploads = this.sheetManager.listUploads()
                                     .stream()
-                                    .map(file -> new ListItem(file.getName(), CommandHandler.getSize(file), CommandHandler.getSheetCount(file), file.getModifiedTime().getValue(), file.getId()))
+                                    .map(file -> {
+                                        var owner = file.getOwners().get(0);
+                                        System.out.println("is " + owner.getDisplayName() + " me? " + owner.getMe());
+                                        System.out.println(file.getOwnedByMe());
+                                        return new ListItem(file.getName(),
+                                                CommandHandler.getSize(file),
+                                                CommandHandler.getSheetCount(file),
+                                                file.getModifiedTime().getValue(),
+                                                file.getId(),
+                                                owner.getMe(),
+                                                owner.getDisplayName());
+                                    })
                                     .collect(Collectors.toUnmodifiableList());
                         }
 
@@ -199,8 +211,14 @@ public class SocketCommunication {
 
                         LOGGER.info("Uploaded {} in {}ms", uploaded.getId(), System.currentTimeMillis() - start);
 
+                        var owner = uploaded.getOwners().get(0);
                         sendData.accept(new UploadStatusResponse(1, "Success", state, "COMPLETE", 1, Collections.singletonList(
-                                new ListItem(name, CommandHandler.getSize(uploaded), CommandHandler.getSheetCount(uploaded), uploaded.getModifiedTime().getValue(), uploaded.getId()))));
+                                new ListItem(name, CommandHandler.getSize(uploaded),
+                                        CommandHandler.getSheetCount(uploaded),
+                                        uploaded.getModifiedTime().getValue(),
+                                        uploaded.getId(),
+                                        owner.getMe(),
+                                        owner.getDisplayName()))));
                         break;
                     case DOWNLOAD_REQUEST:
                         var downloadRequest = GSON.fromJson(input, DownloadRequest.class);

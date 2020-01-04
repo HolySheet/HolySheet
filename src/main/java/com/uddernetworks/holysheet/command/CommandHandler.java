@@ -1,5 +1,6 @@
 package com.uddernetworks.holysheet.command;
 
+import com.google.api.services.drive.model.User;
 import com.uddernetworks.holysheet.DocStore;
 import com.uddernetworks.holysheet.console.ConsoleTableBuilder;
 import com.uddernetworks.holysheet.utility.Utility;
@@ -131,6 +132,7 @@ public class CommandHandler implements Runnable {
                 .addColumn("Name", 20)
                 .addColumn("Size", 8)
                 .addColumn("Sheets", 6)
+                .addColumn("Owner", 20)
                 .addColumn("Date", 10)
                 .addColumn("Id", 33)
                 .setHorizontalSpacing(3);
@@ -141,6 +143,7 @@ public class CommandHandler implements Runnable {
                         file.getName(),
                         humanReadableByteCountSI(Long.parseLong(file.getProperties().get("size"))),
                         String.valueOf(getSheetCount(file)),
+                        file.getOwners().stream().map(User::getDisplayName).collect(Collectors.joining(",")),
                         DATE_FORMAT.format(new Date(file.getModifiedTime().getValue())),
                         file.getId()
                 )).collect(Collectors.toUnmodifiableList())));

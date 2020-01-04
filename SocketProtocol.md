@@ -123,20 +123,24 @@ Contains a list of files and their basic information.
            "size": 54321,
            "sheets": 6,
            "date": 1577200502088,
-           "id": "abcdefghijklmnopqrstuvwxyz"
+           "id": "abcdefghijklmnopqrstuvwxyz",
+           "selfOwned": false,
+           "owner": "Some Owner"
          }
      ]
 }
 ```
 
-| Key    | Example Value | Description                                                  |
-| ------ | ------------- | ------------------------------------------------------------ |
-| items  | Item[]        | A collection of files/items retrieved. The Item object is outlined in the following 5 properties. |
-| name   | String        | The name of the file                                         |
-| size   | Long          | The size of the file in bytes                                |
-| sheets | Integer       | The amount of sheets the file consists of                    |
-| date   | Long          | The millisecond timestamp the file was created               |
-| id     | String        | The sheets-generated ID of the file                          |
+| Key       | Example Value | Description                                                  |
+| --------- | ------------- | ------------------------------------------------------------ |
+| items     | Item[]        | A collection of files/items retrieved. The Item object is outlined in the following 5 properties. |
+| name      | String        | The name of the file                                         |
+| size      | Long          | The size of the file in bytes                                |
+| sheets    | Integer       | The amount of sheets the file consists of                    |
+| date      | Long          | The millisecond timestamp the file was created               |
+| id        | String        | The sheets-generated ID of the file                          |
+| selfOwned | Boolean       | If the logged-in user owns the file                          |
+| owner     | String        | The name of the user who owns the file                       |
 
 
 
@@ -181,7 +185,9 @@ A status update saying how far along an upload is.
            "size": 54321,
            "sheets": 6,
            "date": 1577200502088,
-           "id": "abcdefghijklmnopqrstuvwxyz"
+           "id": "abcdefghijklmnopqrstuvwxyz",
+           "selfOwned": false,
+           "owner": "Some Owner"
          }
      ]
 }
@@ -197,6 +203,8 @@ A status update saying how far along an upload is.
 | sheets     | Integer                          | The amount of sheets the file consists of                    |
 | date       | Long                             | The millisecond timestamp the file was created               |
 | id         | String                           | The sheets-generated ID of the file                          |
+| selfOwned | Boolean                           | If the logged-in user owns the file                          |
+| owner     | String                            | The name of the user who owns the file                       |
 
 
 ## DownloadRequest (5)
