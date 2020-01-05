@@ -28,7 +28,7 @@ import java.util.stream.Collectors;
 import static com.uddernetworks.holysheet.utility.Utility.humanReadableByteCountSI;
 
 @CommandLine.Command(name = "example", mixinStandardHelpOptions = true, version = "DriveStore 1.0.0", customSynopsis = {
-        "([-cm] -u=<file>... | [-cm] -e=<id> | -d=<name/id>... |  -r=<name/id>...) [-asiphlV]"
+        "([-cm] -u=<file>... | [-cm] -e=<id> | -d=<name/id>... |  -r=<name/id>...) [-asixphlV]"
 })
 public class CommandHandler implements Runnable {
 
@@ -47,8 +47,11 @@ public class CommandHandler implements Runnable {
     @Option(names = {"-s", "--socket"}, description = "Starts communication socket on the given port, used to interface with other apps")
     int socket = -1;
 
-    @Option(names = {"-i", "--io"}, description = "Starts communication via console ")
+    @Option(names = {"-i", "--io"}, description = "Starts communication via console")
     boolean io = false;
+
+    @Option(names = {"-x", "--codeexec"}, description = "Enables Java code execution required on some clients. Not recommended while running with sockets.")
+    boolean codeExec = false;
 
     @Option(names = {"-p", "--parent"}, description = "Kills the process (When running with socket) when the given PID is killed")
     int parent = -1;
@@ -89,11 +92,16 @@ public class CommandHandler implements Runnable {
 
         if (socket > 0 || io) {
             holySheet.getjShellRemote().start();
+            var communication = holySheet.getSocketCommunication();
+            communication.setCodeExecution(codeExec);
 
             if (io) {
-                holySheet.getSocketCommunication().listenIO();
+                communication.listenIO();
             } else {
-                holySheet.getSocketCommunication().startSocket(socket);
+                if (codeExec) {
+                    LOGGER.warn("Running with code execution enabled (-x/--codeexec) with sockets is dangerous! It opens up for vulnerabilities, if any programs are targeting this.");
+                }
+                communication.startSocket(socket);
             }
 
             Utility.sleep(Long.MAX_VALUE);

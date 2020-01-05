@@ -55,6 +55,7 @@ public class SocketCommunication {
     private final AtomicReference<Socket> lastClient = new AtomicReference<>(); // The most recently active client
 
     private List<BiConsumer<Socket, String>> receivers = Collections.synchronizedList(new ArrayList<>());
+    private boolean codeExecution;
 
     public SocketCommunication(HolySheet holySheet) {
         this.holySheet = holySheet;
@@ -144,8 +145,6 @@ public class SocketCommunication {
                     case LIST_REQUEST:
                         var listRequest = GSON.fromJson(input, ListRequest.class);
 
-                        LOGGER.info("Got list request. Query: {}", listRequest.getQuery());
-
                         List<ListItem> uploads;
                         synchronized (this.sheetManager) {
                             uploads = this.sheetManager.listUploads()
@@ -168,8 +167,6 @@ public class SocketCommunication {
                         break;
                     case UPLOAD_REQUEST:
                         var uploadRequest = GSON.fromJson(input, UploadRequest.class);
-
-                        LOGGER.info("Got upload request for {} or {}", uploadRequest.getFile(), uploadRequest.getId());
 
                         String name;
                         byte[] data;
@@ -263,8 +260,6 @@ public class SocketCommunication {
                     case REMOVE_REQUEST:
                         var removeRequest = GSON.fromJson(input, RemoveRequest.class);
 
-                        LOGGER.info("Got remove request for {}", removeRequest.getId());
-
                         sendData.accept(new RemoveStatusResponse(1, "Success", state, "PENDING", 0));
 
                         sheetIO.deleteData(removeRequest.getId(), false, error ->
@@ -272,6 +267,11 @@ public class SocketCommunication {
                                 sendData.accept(new RemoveStatusResponse(1, "Success", state, "COMPLETE", 1)));
                         break;
                     case CODE_EXECUTION_REQUEST:
+                        if (!codeExecution) {
+                            sendData.accept(new ErrorPayload("Code execution not enabled! Ensure the jar is being ran with the ", basicPayload.getState(), Utility.getStackTrace()));;
+                            return;
+                        }
+
                         var codeExecutionRequest = GSON.fromJson(input, CodeExecutionRequest.class);
 
                         LOGGER.info("Got code execution request");
@@ -280,12 +280,12 @@ public class SocketCommunication {
                         break;
                     default:
                         LOGGER.error("Unsupported type: {}", basicPayload.getType().name());
-                        sendData.accept(new ErrorPayload("Unsupported type: " + basicPayload.getType().name(), basicPayload.getState(), ExceptionUtils.getStackTrace(new RuntimeException())));
+                        sendData.accept(new ErrorPayload("Unsupported type: " + basicPayload.getType().name(), basicPayload.getState(), Utility.getStackTrace()));
                         break;
                 }
             } catch (Exception e) { // Catching Exception only for error reporting back to GUI/Other client
                 LOGGER.error("Exception while parsing client received data", e);
-                sendData.accept(new ErrorPayload(e.getMessage(), basicPayload.getState(), ExceptionUtils.getStackTrace(e)));
+                sendData.accept(new ErrorPayload(e.getMessage(), basicPayload.getState(), Utility.getStackTrace(e)));
             }
         }).exceptionally(t -> {
             LOGGER.error("Exception while parsing client received data", t);
@@ -309,5 +309,13 @@ public class SocketCommunication {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    public void setCodeExecution(boolean codeExecution) {
+        this.codeExecution = codeExecution;
+    }
+
+    public boolean getCodeExecution() {
+        return codeExecution;
     }
 }
