@@ -24,17 +24,17 @@ public class SheetManager {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SheetManager.class);
 
-    private final DocStore docStore;
+    private final HolySheet holySheet;
     private final Drive drive;
     private final Sheets sheets;
     private SheetIO sheetIO;
 
     private File docstore;
 
-    public SheetManager(DocStore docStore) {
-        this.docStore = docStore;
-        this.drive = docStore.getDrive();
-        this.sheets = docStore.getSheets();
+    public SheetManager(HolySheet holySheet) {
+        this.holySheet = holySheet;
+        this.drive = holySheet.getDrive();
+        this.sheets = holySheet.getSheets();
     }
 
     public void init() {
@@ -159,7 +159,7 @@ public class SheetManager {
     private FileList getPagesFiles(String pageToken, int pageSize, Mime[] mimes, String query) throws IOException {
         var builder = drive.files().list()
                 .setPageSize(pageSize)
-                .setFields("nextPageToken, files(id, name, sharingUser, owners, mimeType, parents, size, modifiedTime, properties)");
+                .setFields("nextPageToken, files(id, name, starred, webViewLink, sharingUser, owners, mimeType, parents, size, modifiedTime, properties)");
 
         if (pageToken != null && !pageToken.isBlank()) {
             builder.setPageToken(pageToken);

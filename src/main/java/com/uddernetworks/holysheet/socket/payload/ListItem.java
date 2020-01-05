@@ -8,8 +8,9 @@ public class ListItem {
     private String id;
     private boolean selfOwned;
     private String owner;
+    private String driveLink;
 
-    public ListItem(String name, long size, int sheets, long date, String id, boolean selfOwned, String owner) {
+    public ListItem(String name, long size, int sheets, long date, String id, boolean selfOwned, String owner, String driveLink) {
         this.name = name;
         this.size = size;
         this.sheets = sheets;
@@ -17,6 +18,7 @@ public class ListItem {
         this.id = id;
         this.selfOwned = selfOwned;
         this.owner = owner;
+        this.driveLink = driveLink;
     }
 
     @Override
@@ -29,6 +31,7 @@ public class ListItem {
                 ", id='" + id + '\'' +
                 ", selfOwned=" + selfOwned +
                 ", owner='" + owner + '\'' +
+                ", driveLink='" + driveLink + '\'' +
                 '}';
     }
 }

@@ -125,7 +125,8 @@ Contains a list of files and their basic information.
            "date": 1577200502088,
            "id": "abcdefghijklmnopqrstuvwxyz",
            "selfOwned": false,
-           "owner": "Some Owner"
+           "owner": "Some Owner",
+           "driveLink": "https://drive.google.com/..."
          }
      ]
 }
@@ -141,6 +142,7 @@ Contains a list of files and their basic information.
 | id        | String        | The sheets-generated ID of the file                          |
 | selfOwned | Boolean       | If the logged-in user owns the file                          |
 | owner     | String        | The name of the user who owns the file                       |
+| driveLink | String        | The webViewLink to view the file in Google Drive             |
 
 
 
@@ -187,7 +189,8 @@ A status update saying how far along an upload is.
            "date": 1577200502088,
            "id": "abcdefghijklmnopqrstuvwxyz",
            "selfOwned": false,
-           "owner": "Some Owner"
+           "owner": "Some Owner",
+           "driveLink": "https://drive.google.com/..."
          }
      ]
 }
@@ -205,6 +208,7 @@ A status update saying how far along an upload is.
 | id         | String                           | The sheets-generated ID of the file                          |
 | selfOwned | Boolean                           | If the logged-in user owns the file                          |
 | owner     | String                            | The name of the user who owns the file                       |
+| driveLink | String | The webViewLink to view the file in Google Drive |
 
 
 ## DownloadRequest (5)

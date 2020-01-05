@@ -1,9 +1,8 @@
 package com.uddernetworks.holysheet.socket;
 
-import com.google.api.services.drive.model.User;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.uddernetworks.holysheet.DocStore;
+import com.uddernetworks.holysheet.HolySheet;
 import com.uddernetworks.holysheet.SheetManager;
 import com.uddernetworks.holysheet.command.CommandHandler;
 import com.uddernetworks.holysheet.socket.payload.BasicPayload;
@@ -50,16 +49,16 @@ public class SocketCommunication {
             .registerTypeAdapter(PayloadType.class, new PayloadTypeAdapter())
             .create();
 
-    private final DocStore docStore;
+    private final HolySheet holySheet;
     private final SheetManager sheetManager;
     private ServerSocket serverSocket;
     private final AtomicReference<Socket> lastClient = new AtomicReference<>(); // The most recently active client
 
     private List<BiConsumer<Socket, String>> receivers = Collections.synchronizedList(new ArrayList<>());
 
-    public SocketCommunication(DocStore docStore) {
-        this.docStore = docStore;
-        this.sheetManager = docStore.getSheetManager();
+    public SocketCommunication(HolySheet holySheet) {
+        this.holySheet = holySheet;
+        this.sheetManager = holySheet.getSheetManager();
     }
 
     public void listenIO() {
@@ -153,15 +152,14 @@ public class SocketCommunication {
                                     .stream()
                                     .map(file -> {
                                         var owner = file.getOwners().get(0);
-                                        System.out.println("is " + owner.getDisplayName() + " me? " + owner.getMe());
-                                        System.out.println(file.getOwnedByMe());
                                         return new ListItem(file.getName(),
                                                 CommandHandler.getSize(file),
                                                 CommandHandler.getSheetCount(file),
                                                 file.getModifiedTime().getValue(),
                                                 file.getId(),
                                                 owner.getMe(),
-                                                owner.getDisplayName());
+                                                owner.getDisplayName(),
+                                                file.getWebViewLink());
                                     })
                                     .collect(Collectors.toUnmodifiableList());
                         }
@@ -218,7 +216,8 @@ public class SocketCommunication {
                                         uploaded.getModifiedTime().getValue(),
                                         uploaded.getId(),
                                         owner.getMe(),
-                                        owner.getDisplayName()))));
+                                        owner.getDisplayName(),
+                                        uploaded.getWebViewLink()))));
                         break;
                     case DOWNLOAD_REQUEST:
                         var downloadRequest = GSON.fromJson(input, DownloadRequest.class);
@@ -277,7 +276,7 @@ public class SocketCommunication {
 
                         LOGGER.info("Got code execution request");
 
-                        docStore.getjShellRemote().queueRequest(codeExecutionRequest, sendData::accept);
+                        holySheet.getjShellRemote().queueRequest(codeExecutionRequest, sendData::accept);
                         break;
                     default:
                         LOGGER.error("Unsupported type: {}", basicPayload.getType().name());

@@ -12,8 +12,8 @@ import picocli.CommandLine;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 
-public class DocStore {
-    private static final Logger LOGGER = LoggerFactory.getLogger(DocStore.class);
+public class HolySheet {
+    private static final Logger LOGGER = LoggerFactory.getLogger(HolySheet.class);
 
     private AuthManager authManager;
     private SheetManager sheetManager;
@@ -23,7 +23,7 @@ public class DocStore {
     private Sheets sheets;
 
     public static void main(String[] args) {
-        new DocStore().start(args);
+        new HolySheet().start(args);
     }
 
     private void start(String[] args) {

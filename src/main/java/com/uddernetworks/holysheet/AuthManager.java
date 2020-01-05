@@ -34,7 +34,7 @@ import java.util.List;
 public class AuthManager {
     private static final Logger LOGGER = LoggerFactory.getLogger(AuthManager.class);
 
-    private static final String APPLICATION_NAME = "DocStore";
+    private static final String APPLICATION_NAME = "HolySheet";
     private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
     private static final String TOKENS_DIRECTORY_PATH = "private";
     private static final List<String> SCOPES = List.of(DriveScopes.DRIVE, SheetsScopes.SPREADSHEETS);

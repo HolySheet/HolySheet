@@ -1,7 +1,7 @@
 package com.uddernetworks.holysheet.command;
 
 import com.google.api.services.drive.model.User;
-import com.uddernetworks.holysheet.DocStore;
+import com.uddernetworks.holysheet.HolySheet;
 import com.uddernetworks.holysheet.console.ConsoleTableBuilder;
 import com.uddernetworks.holysheet.utility.Utility;
 import org.apache.commons.io.FilenameUtils;
@@ -36,7 +36,7 @@ public class CommandHandler implements Runnable {
     public static final DateFormat DATE_FORMAT = new SimpleDateFormat("MM-dd-yyyy");
     public static final Pattern ID_PATTERN = Pattern.compile("([a-zA-Z0-9-_]+)");
 
-    private final DocStore docStore;
+    private final HolySheet holySheet;
 
     @Option(names = {"-l", "--list"}, description = "Lists the uploaded files in Google Sheets")
     boolean list;
@@ -62,8 +62,8 @@ public class CommandHandler implements Runnable {
     @ArgGroup(multiplicity = "0..1")
     RequiresParam param;
 
-    public CommandHandler(DocStore docStore) {
-        this.docStore = docStore;
+    public CommandHandler(HolySheet holySheet) {
+        this.holySheet = holySheet;
     }
 
     static class RequiresParam {
@@ -85,15 +85,15 @@ public class CommandHandler implements Runnable {
     public void run() {
         suicideForParent(parent);
 
-        docStore.init(credentials);
+        holySheet.init(credentials);
 
         if (socket > 0 || io) {
-            docStore.getjShellRemote().start();
+            holySheet.getjShellRemote().start();
 
             if (io) {
-                docStore.getSocketCommunication().listenIO();
+                holySheet.getSocketCommunication().listenIO();
             } else {
-                docStore.getSocketCommunication().startSocket(socket);
+                holySheet.getSocketCommunication().startSocket(socket);
             }
 
             Utility.sleep(Long.MAX_VALUE);
@@ -127,7 +127,7 @@ public class CommandHandler implements Runnable {
     }
 
     private void list() {
-        var docManager = docStore.getSheetManager();
+        var docManager = holySheet.getSheetManager();
         var table = new ConsoleTableBuilder()
                 .addColumn("Name", 20)
                 .addColumn("Size", 8)
@@ -166,7 +166,7 @@ public class CommandHandler implements Runnable {
 
         LOGGER.info("Uploading {}...", file.getName());
 
-        var sheetIO = docStore.getSheetManager().getSheetIO();
+        var sheetIO = holySheet.getSheetManager().getSheetIO();
 
         try {
             long start = System.currentTimeMillis();
@@ -188,7 +188,7 @@ public class CommandHandler implements Runnable {
 
     private void downloadIdName(String idName) {
         try {
-            var docManager = docStore.getSheetManager();
+            var docManager = holySheet.getSheetManager();
 
             if (ID_PATTERN.matcher(idName).matches()) {
                 idName = docManager.getIdOfName(idName).orElse(idName);
@@ -219,11 +219,11 @@ public class CommandHandler implements Runnable {
     }
 
     private void remove() {
-        param.remove.forEach(docStore.getSheetManager().getSheetIO()::deleteData);
+        param.remove.forEach(holySheet.getSheetManager().getSheetIO()::deleteData);
     }
 
     private void cloneFiles() {
-        var io = docStore.getSheetManager().getSheetIO();
+        var io = holySheet.getSheetManager().getSheetIO();
         param.clone.forEach(id -> io.cloneFile(id, sheetSize, compression));
     }
 

@@ -246,7 +246,7 @@ public class SheetIO {
 
             var properties = file.getProperties();
             if (!"true".equals(properties.get("directParent"))) {
-                onLogError.accept("The given file was not detected as a direct parent of generated sheet data. For your safety, DocStore will not delete anything not directly created by it, therefore this action has been cancelled.");
+                onLogError.accept("The given file was not detected as a direct parent of generated sheet data. For your safety, HolySheet will not delete anything not directly created by it, therefore this action has been cancelled.");
                 return;
             }
 
