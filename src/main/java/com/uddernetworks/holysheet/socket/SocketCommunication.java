@@ -56,6 +56,7 @@ public class SocketCommunication {
 
     private List<BiConsumer<Socket, String>> receivers = Collections.synchronizedList(new ArrayList<>());
     private boolean codeExecution;
+    private boolean useSocket;
 
     public SocketCommunication(HolySheet holySheet) {
         this.holySheet = holySheet;
@@ -67,21 +68,22 @@ public class SocketCommunication {
 
         var in = new Scanner(System.in);
         for (String line; (line = in.nextLine()) != null; ) {
-            handleRequest(data -> System.out.println(GSON.toJson(data)), line);
+            if (line.trim().startsWith("{")) {
+                handleRequest(data -> System.out.println(GSON.toJson(data)), line);
+            }
         }
     }
 
     public void startSocket(int port) {
         LOGGER.info("Starting payload on port {}...", port);
+        useSocket = true;
 
         try {
             serverSocket = new ServerSocket(port);
 
             while (true) {
-                var socket = serverSocket.accept();
-                if (lastClient.get() == null) {
-                    lastClient.set(socket);
-                }
+                final var socket = serverSocket.accept();
+                lastClient.set(socket);
                 CompletableFuture.runAsync(() -> {
                     try {
                         LOGGER.info("Got client");
@@ -113,6 +115,11 @@ public class SocketCommunication {
     }
 
     public void sendPayload(BasicPayload payload) {
+        if (!useSocket) {
+            System.out.println(GSON.toJson(payload));
+            return;
+        }
+
         var client = lastClient.get();
         if (client == null) {
             return;

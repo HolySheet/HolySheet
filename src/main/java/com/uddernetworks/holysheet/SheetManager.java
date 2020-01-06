@@ -102,7 +102,7 @@ public class SheetManager {
                 .setParents(parent == null ? null : Collections.singletonList(parent.getId()))
                 .setProperties(properties)
                 .setName(name))
-                .setFields("id, name, mimeType, parents, size, modifiedTime, properties").execute();
+                .setFields("id, name, starred, webViewLink, sharingUser, owners, mimeType, parents, size, modifiedTime, properties").execute();
     }
 
     /**
