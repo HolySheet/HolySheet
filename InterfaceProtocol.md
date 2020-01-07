@@ -1,6 +1,6 @@
-# Socket Protocol
+# Interface Protocol
 
-When not running in CLI mode, HolySheet has the ability to communicate to other programs (a GUI, web interface, etc.) over a socket JSON protocol. When a client (External program) wants information from HolySheet, it sends a request. In turn, HolySheet sends a response containing necessary data. The following are the supported request and responses, with example JSON.
+When not running in CLI mode, HolySheet has the ability to communicate to other programs (a GUI, web interface, etc.) over a JSON protocol. When a client (External program) wants information from HolySheet, it sends a request. In turn, HolySheet sends a response containing necessary data. This protocol is served either over a socket, or console IO streams (Toggleable in startup parameters). The following are the supported request and responses, with example JSON.
 
 - [BasicPayload](#BasicPayload)
 - [ErrorPayload](#ErrorPayload-0)
@@ -292,6 +292,8 @@ A status update saying how far along a file removal is.
 ## CodeExecutionRequest (9)
 
 `Client --> Server`
+
+**Note:** This is only enabled if the program is started with the `-x` or `--codeexec` parameters, and is **NOT** recommended when in use with a socket for security reasons.
 
 Send to request the arbitrary execution of code on the Java program. This code is ran in a static class and on the same JVM, having access to specific static "access point" variables, used for smaller things it may not be worth (Or too complex) to make a whole new request for, such as file selection. This supports callbacks as well, which will be demonstrated in [CodeExecutionCallbackResponse](#CodeExecutionCallbackResponse-11). Code is invoked via JShell.
 

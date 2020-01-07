@@ -1,10 +1,28 @@
-# HolySheet
+<h1 align="center">HolySheet</h1>
+<p align="center"><i>Store any file, of any size to Google Sheets</i></p>
+<hr><p align="center">
+  <a href="http://hits.dwyl.io/RubbaBoy/HolySheet"><img alt="HitCount" src="http://hits.dwyl.io/RubbaBoy/HolySheet.svg" /></a>
+  <img alt="Stars" src="https://img.shields.io/github/stars/RubbaBoy/HolySheet.svg?label=Stars&style=flat" />
+  <a href="https://wakatime.com/badge/github/RubbaBoy/HolySheet"><img alt="Time Tracker" src="https://wakatime.com/badge/github/RubbaBoy/HolySheet.svg"/></a>
+  <a href="https://github.com/RubbaBoy/HolySheet/issues"><img alt="GitHub issues" src="https://img.shields.io/github/issues/RubbaBoy/HolySheet.svg"/></a>
+  <a href="https://github.com/RubbaBoy/HolySheet/graphs/contributors"><img alt="GitHub contributors" src="https://img.shields.io/github/contributors/RubbaBoy/HolySheet"></a>
+  <a href="https://github.com/RubbaBoy/HolySheet/blob/master/LICENSE.txt"><img src="https://img.shields.io/github/license/RubbaBoy/HolySheet.svg" alt="License"/></a>
+</p>
 
 HolySheet is a program that allows you to store arbitrary files onto Google Sheets, which does not lower storage quota on Google Drive. This is inspired by [uds](https://github.com/stewartmcgown/uds), however it can only store ~710KB of data per doc due to the use of Base64 and Docs limitations, and only has CLI usage.
 
-HolySheet uses Google Sheets, which has an undocumented maximum 25.9MB* of data capacity in my less-than-professional testing. A modified Base91 algorithm is also used to efficiently convert arbitrary files into text to work with Sheets. Compression to Zip is also offered, with other compression methods planned. This repo is the CLI/Server for HolySheet, with [SheetyGUI](https://github.com/RubbaBoy/SheetyGUI) being the GUI application.
+HolySheet uses Google Sheets, which has an undocumented maximum 25.9MB* of data capacity in my less-than-professional testing. A modified Base91 algorithm is also used to efficiently convert arbitrary files into text to work with Sheets. Compression to Zip is also offered, with other compression methods planned.
 
-\* This could be more, it arbitrarily throws 500 ISE's at upload requests with more (A more stable and recommended number is 10MB)
+For the official GUI application, see [SheetyGUI](https://github.com/RubbaBoy/SheetyGUI).
+
+*\* This could be more, it arbitrarily throws 500 ISE's at upload requests with more (A more stable and recommended number is 10MB)*
+
+## How it works
+
+- Google Sheets do not affect Drive quota
+- Google Sheets allow for (an undocumented) 10+MB per sheet
+- Base91 turns files into text with ~22% overhead
+- A [JSON protocol](https://github.com/RubbaBoy/HolySheet/blob/master/InterfaceProtocol.md) allows for separated GUI, or other program interfacing
 
 ## Installing
 
@@ -60,7 +78,7 @@ bob.mp4                59.7 MB    6        Amazon Accounts        12-16-2019   1
 
 ## GUI Demo
 
-The following is a video of the Installation and usage of SheetyGUI.
+The following is a video of the Installation and usage of SheetyGUI. For just a usage demo, skip to [2:06](https://youtu.be/W3wyBj26rsg?t=126)
 
 [![HolySheet Installation/Demo](screenshots/Thumbnail.png)](https://youtu.be/W3wyBj26rsg)
 
