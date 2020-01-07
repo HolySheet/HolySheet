@@ -58,3 +58,11 @@ InfinityWar.mp4        507.0 MB   51       Amazon Accounts        12-16-2019   1
 bob.mp4                59.7 MB    6        Amazon Accounts        12-16-2019   1z9YXGpE5wufpDswqTzuJx5AbIST9wIrZ
 ```
 
+## GUI Demo
+
+The following is a video of the Installation and usage of SheetyGUI.
+
+[![HolySheet Installation/Demo](screenshots/Thumbnail.png)](https://youtu.be/W3wyBj26rsg)
+
+https://youtu.be/W3wyBj26rsg
+

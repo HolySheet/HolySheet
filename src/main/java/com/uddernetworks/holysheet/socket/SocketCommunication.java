@@ -240,8 +240,8 @@ public class SocketCommunication {
                         var destination = new File(downloadRequest.getPath());
                         var parent = destination.getParentFile();
 
-                        if (!parent.exists() || !parent.mkdirs()) {
-                            LOGGER.error("Couldn't find or create parent of \"" + parent.getAbsolutePath() + "\"");
+                        if (!parent.exists() && !parent.mkdirs()) {
+                            LOGGER.error("Couldn't find or create parent of \"" + destination.getAbsolutePath() + "\"");
                             sendData.accept(new ErrorPayload("Couldn't find or create parent of \"" + parent.getAbsolutePath() + "\"", state, Utility.getStackTrace()));
                             return;
                         }
