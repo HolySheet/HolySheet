@@ -180,7 +180,7 @@ public class CommandHandler implements Runnable {
             long start = System.currentTimeMillis();
             var name = FilenameUtils.getName(file.getAbsolutePath());
 
-            var ups = sheetIO.uploadData(name, sheetSize, compression, "multipart", new FileInputStream(file).readAllBytes());
+            var ups = sheetIO.uploadData(name, sheetSize, compression, "multipart", new FileInputStream(file));
 
             LOGGER.info("Uploaded {} in {}ms", ups.getId(), System.currentTimeMillis() - start);
         } catch (IOException e) {

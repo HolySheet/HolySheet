@@ -1,8 +1,11 @@
 package com.uddernetworks.holysheet.encoding;
 
+import org.apache.commons.io.IOUtils;
+
 import java.io.ByteArrayOutputStream;
 import java.io.FilterOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -115,9 +118,9 @@ public class EncodingOutputStream extends FilterOutputStream {
         return chunks;
     }
 
-    public static EncodingOutputStream encode(byte[] data, int maxLength) throws IOException {
+    public static EncodingOutputStream encode(InputStream inputStream, int maxLength) throws IOException {
         var encodingOut = new EncodingOutputStream(maxLength);
-        encodingOut.write(data);
+        IOUtils.copy(inputStream, encodingOut);
         encodingOut.flush();
         return encodingOut;
     }

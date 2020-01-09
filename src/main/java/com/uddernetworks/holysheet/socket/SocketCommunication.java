@@ -27,6 +27,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -176,7 +177,7 @@ public class SocketCommunication {
                         var uploadRequest = GSON.fromJson(input, UploadRequest.class);
 
                         String name;
-                        byte[] data;
+                        InputStream data;
 
                         if (uploadRequest.getFile() != null) {
                             var file = new File(uploadRequest.getFile());
@@ -188,13 +189,13 @@ public class SocketCommunication {
                             }
 
                             name = FilenameUtils.getName(file.getAbsolutePath());
-                            data = new FileInputStream(file).readAllBytes();
+                            data = new FileInputStream(file);
                         } else {
                             var dataOptional = sheetIO.downloadFile(uploadRequest.getId());
                             if (dataOptional.isPresent()) {
                                 var fileData = dataOptional.get();
                                 name = fileData.getFile().getName();
-                                data = fileData.getOut().toByteArray();
+                                data = fileData.getIn();
                             } else {
                                 LOGGER.error("Error downloading file '{}' to be cloned", uploadRequest.getId());
                                 sendData.accept(new ErrorPayload("Error downloading file '" + uploadRequest.getId() + "' to be cloned", state, Utility.getStackTrace()));

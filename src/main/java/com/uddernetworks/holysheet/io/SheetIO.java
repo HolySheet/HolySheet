@@ -14,8 +14,12 @@ import com.uddernetworks.holysheet.utility.Utility;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
@@ -126,19 +130,22 @@ public class SheetIO {
         }
     }
 
-    public File uploadData(String title, int maxSheetSize, boolean compress, String uploadType, byte[] data) throws IOException {
+    public File uploadData(String title, int maxSheetSize, boolean compress, String uploadType, InputStream data) throws IOException {
         return uploadData(title, maxSheetSize, compress, uploadType, data, null);
     }
 
-    public File uploadData(String title, int maxSheetSize, boolean compress, String uploadType, byte[] data, Consumer<Double> statusUpdate) throws IOException {
+    public File uploadData(String title, int maxSheetSize, boolean compress, String uploadType, InputStream data, Consumer<Double> statusUpdate) throws IOException {
         if (compress) {
-            data = CompressionUtils.compress(data);
+            var dataOptional = CompressionUtils.compress(data);
+            if (dataOptional.isEmpty()) {
+                LOGGER.error("AN error occurred while compressing file! Try using a smaller file.");
+            }
         }
 
         var encoded = EncodingOutputStream.encode(data, maxSheetSize);
         var byteArrayList = encoded.getChunks();
 
-        LOGGER.info("Encoded from {} - {} ({}% overhead)", humanReadableByteCountSI(data.length), humanReadableByteCountSI(encoded.getLength()), round((encoded.getLength() - data.length) / (double) data.length * 100D, 2));
+//        LOGGER.info("Encoded from {} - {} ({}% overhead)", humanReadableByteCountSI(data.length), humanReadableByteCountSI(encoded.getLength()), round((encoded.getLength() - data.length) / (double) data.length * 100D, 2));
 
         LOGGER.info("This upload will use {} sheets", byteArrayList.size());
 
@@ -286,14 +293,14 @@ public class SheetIO {
     public void cloneFile(String fileId, int maxSheetSize, boolean compress) {
         downloadFile(fileId).ifPresent(fileData -> {
             var file = fileData.getFile();
-            var out = fileData.getOut();
+            var in = fileData.getIn();
 
             var name = file.getName();
 
             LOGGER.info("Saving {}...", name);
 
             try {
-                uploadData(name, maxSheetSize, compress, "multipart", out.toByteArray());
+                uploadData(name, maxSheetSize, compress, "multipart", in);
             } catch (IOException e) {
                 LOGGER.error("An error occurred while uploading the " + fileId, e);
             }
@@ -314,9 +321,9 @@ public class SheetIO {
                 return Optional.empty();
             }
 
-            var out = new ByteArrayOutputStream();
-            drive.files().get(fileId).executeMediaAndDownloadTo(out);
-            return Optional.of(new FileData(file, out));
+            var downloaded = java.io.File.createTempFile("downloaded-" + hashCode(), "");
+            drive.files().get(fileId).executeMediaAndDownloadTo(new FileOutputStream(downloaded));
+            return Optional.of(new FileData(file, new FileInputStream(downloaded)));
         } catch (IOException e) {
             LOGGER.error("An error occurred while downloading the file " + fileId, e);
             return Optional.empty();
@@ -325,19 +332,19 @@ public class SheetIO {
 
     public static class FileData {
         private final File file;
-        private final ByteArrayOutputStream out;
+        private final InputStream in;
 
-        public FileData(File file, ByteArrayOutputStream out) {
+        public FileData(File file, InputStream in) {
             this.file = file;
-            this.out = out;
+            this.in = in;
         }
 
         public File getFile() {
             return file;
         }
 
-        public ByteArrayOutputStream getOut() {
-            return out;
+        public InputStream getIn() {
+            return in;
         }
     }
 }
