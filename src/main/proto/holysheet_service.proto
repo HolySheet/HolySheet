@@ -1,0 +1,134 @@
+syntax = "proto3";
+
+package com.uddernetworks.grpc;
+
+// Represents a file to be sent over
+message ListItem {
+    string name = 1;
+    string id = 2;
+    int32 sheets = 3;
+    int64 size = 4;
+    int64 date = 5;
+    bool selfOwned = 6;
+    string owner = 7;
+    string driveLink = 8;
+}
+
+// Used in code execution, to hold data of a variable
+message SerializedVariable {
+    string name = 1; // Name of the variable
+    string type = 2; // The Java class type
+    string object = 3; // JSON Serialized data
+}
+
+
+message ListRequest {
+    string path = 1; // The remote drive path to list
+}
+
+message ListResponse {
+    repeated ListItem items = 1; // A list of items retrieved
+}
+
+message UploadRequest {
+    string file = 1; // The file path, if uploading
+    string id = 2; // The file ID, if cloning
+    Upload upload = 3; // The upload type
+    Compression compression = 4; // The compression setting
+    int64 sheetSize = 5; // The maximum size (in bytes) each sheet can be
+
+    enum Upload {
+        MULTIPART = 0;
+        DIRECT = 1;
+    }
+
+    enum Compression {
+        NONE = 0;
+        ZIP = 1;
+    }
+}
+
+message UploadResponse {
+    UploadStatus status = 1; // The upload status
+    double percentage = 2; // The 0-1 percentage of the upload
+
+    enum UploadStatus {
+        PENDING = 0;
+        UPLOADING = 1;
+        COMPLETE = 2;
+    }
+}
+
+message DownloadRequest {
+    string id = 1; // The Sheets-generated ID of the file to download
+    string path = 2; // The local file path to save the file to
+}
+
+message DownloadResponse {
+    DownloadStatus status = 1; // The download status
+    double percentage = 2; // The 0-1 percentage of the download
+
+    enum DownloadStatus {
+        PENDING = 0;
+        DOWNLOADING = 1;
+        COMPLETE = 2;
+    }
+}
+
+message RemoveRequest {
+    string id = 1; // The Sheets-generated ID of the file to remove
+}
+
+message RemoveResponse {
+    RemoveStatus status = 1; // The removal status
+    double percentage = 2; // The 0-1 percentage of the removal
+
+    enum RemoveStatus {
+        PENDING = 0;
+        REMOVING = 1;
+        COMPLETE = 2;
+    }
+}
+
+message CodeExecutionRequest {
+
+    string code = 1; // A snippet of Java code, exactly one complete snippet of source code, that is, one expression,
+    // statement, variable declaration, method declaration, class declaration, or import. - JShell. Invoked on the server
+
+    repeated string returnVariables = 2; // A list of extra variables to return in the response
+}
+
+message CodeExecutionResponse {
+    repeated string snippetResult = 2; // A list of implicit or explicitly created variables in the snippet
+    repeated SerializedVariable variables = 3; // A list of variables listed in the request via returnVariables, and in this response via snippetResult
+}
+
+message CodeExecutionCallbackResponse {
+    string callbackState = 1; // An untrimmed UUID (Set in the code) to identify the callback
+    repeated string snippetResult = 2; // A list of variable names passed to the callback, sent by the client
+    repeated SerializedVariable variables = 3; // A list of all variables listed in the snippetResult
+}
+
+message ListenCallbacksRequest {
+}
+
+service HolySheetService {
+
+    // Lists files with an optional path
+    rpc listFiles(ListRequest) returns (ListResponse);
+
+    // Uploads a file
+    rpc uploadFile(UploadRequest) returns (stream UploadResponse);
+
+    // Downloads a remote file
+    rpc downloadFile(DownloadRequest) returns (stream DownloadResponse);
+
+    // Removes a remote file
+    rpc removeFile(RemoveRequest) returns (stream RemoveResponse);
+
+    // Executes Java code on the server
+    rpc executeCode(CodeExecutionRequest) returns (CodeExecutionResponse);
+
+    // Should only be invoked once. Streams back all callbacks
+    rpc listenCallbacks(ListenCallbacksRequest) returns (stream CodeExecutionCallbackResponse);
+}
