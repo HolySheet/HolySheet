@@ -3,8 +3,8 @@ package com.uddernetworks.holysheet;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.sheets.v4.Sheets;
 import com.uddernetworks.holysheet.command.CommandHandler;
-import com.uddernetworks.holysheet.socket.SocketCommunication;
-import com.uddernetworks.holysheet.socket.jshell.JShellRemote;
+import com.uddernetworks.holysheet.grpc.GRPCClient;
+import com.uddernetworks.holysheet.jshell.JShellRemote;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import picocli.CommandLine;
@@ -17,7 +17,7 @@ public class HolySheet {
 
     private AuthManager authManager;
     private SheetManager sheetManager;
-    private SocketCommunication socketCommunication;
+    private GRPCClient grpcClient;
     private JShellRemote jShellRemote;
     private Drive drive;
     private Sheets sheets;
@@ -44,9 +44,9 @@ public class HolySheet {
             sheets = authManager.getSheets();
 
             sheetManager = new SheetManager(this);
-            socketCommunication = new SocketCommunication(this);
+            grpcClient = new GRPCClient(this, sheetManager);
 
-            jShellRemote = new JShellRemote(socketCommunication);
+            jShellRemote = new JShellRemote(grpcClient);
 
             sheetManager.init();
         } catch (GeneralSecurityException | IOException e) {
@@ -62,8 +62,8 @@ public class HolySheet {
         return sheetManager;
     }
 
-    public SocketCommunication getSocketCommunication() {
-        return socketCommunication;
+    public GRPCClient getGrpcClient() {
+        return grpcClient;
     }
 
     public JShellRemote getjShellRemote() {

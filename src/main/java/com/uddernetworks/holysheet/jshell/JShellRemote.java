@@ -1,19 +1,17 @@
-package com.uddernetworks.holysheet.socket.jshell;
+package com.uddernetworks.holysheet.jshell;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.uddernetworks.holysheet.socket.SocketCommunication;
-import com.uddernetworks.holysheet.socket.payload.BasicPayload;
-import com.uddernetworks.holysheet.socket.payload.CodeExecutionCallbackResponse;
-import com.uddernetworks.holysheet.socket.payload.CodeExecutionRequest;
-import com.uddernetworks.holysheet.socket.payload.CodeExecutionResponse;
-import com.uddernetworks.holysheet.socket.payload.ErrorPayload;
-import com.uddernetworks.holysheet.socket.payload.SerializedVariable;
+import com.uddernetworks.grpc.HolysheetService.CodeExecutionCallbackResponse;
+import com.uddernetworks.grpc.HolysheetService.CodeExecutionRequest;
+import com.uddernetworks.grpc.HolysheetService.CodeExecutionResponse;
+import com.uddernetworks.grpc.HolysheetService.SerializedVariable;
+import com.uddernetworks.holysheet.grpc.GRPCClient;
 import com.uddernetworks.holysheet.utility.Utility;
+import io.grpc.stub.StreamObserver;
 import jdk.jshell.Diag;
 import jdk.jshell.JShell;
 import jdk.jshell.Snippet;
-import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,7 +27,6 @@ import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.function.Consumer;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -47,7 +44,7 @@ public class JShellRemote {
 
     private static JShellRemote instance;
 
-    private Queue<Map.Entry<CodeExecutionRequest, Consumer<BasicPayload>>> requestQueue = new ConcurrentLinkedQueue<>();
+    private Queue<Map.Entry<CodeExecutionRequest, StreamObserver<CodeExecutionResponse>>> requestQueue = new ConcurrentLinkedQueue<>();
 
     private JShell shell;
 
@@ -55,11 +52,12 @@ public class JShellRemote {
     private Field diagnostics;
     private Method keyName;
 
-    private final SocketCommunication socketCommunication;
+    private final GRPCClient grpcClient;
     private GsonExecutionControl executionControl;
 
-    public JShellRemote(SocketCommunication socketCommunication) {
-        this.socketCommunication = socketCommunication;
+    public JShellRemote(GRPCClient grpcClient) {
+        this.grpcClient = grpcClient;
+
         try {
             key = Snippet.class.getDeclaredField("key");
             key.setAccessible(true);
@@ -88,7 +86,7 @@ public class JShellRemote {
                 "java.util.Collections",
                 "java.util.concurrent.*",
                 "java.util.stream.*",
-                "com.uddernetworks.holysheet.socket.jshell.JShellRemote"
+                "com.uddernetworks.holysheet.jshell.JShellRemote"
         ).forEach(pkg -> shell.eval("import " + pkg + ";"));
     }
 
@@ -109,8 +107,7 @@ public class JShellRemote {
 
                 try {
                     var request = entry.getKey();
-                    var response = runCode(request.getState(), request.getInvokeCode(), request.getReturnVariables());
-                    entry.getValue().accept(response);
+                    runCode(request.getCode(), request.getReturnVariablesList(), entry.getValue());
                 } catch (Exception e) {
                     LOGGER.error("An exception occurred", e);
                 }
@@ -118,11 +115,11 @@ public class JShellRemote {
         });
     }
 
-    public void queueRequest(CodeExecutionRequest codeExecutionRequest, Consumer<BasicPayload> responseConsumer) {
-        requestQueue.add(new AbstractMap.SimpleEntry<>(codeExecutionRequest, responseConsumer));
+    public void queueRequest(CodeExecutionRequest codeExecutionRequest, StreamObserver<CodeExecutionResponse> response) {
+        requestQueue.add(new AbstractMap.SimpleEntry<>(codeExecutionRequest, response));
     }
 
-    public static void callback(String requestState, String state, Object... dataArr) {
+    public static void callback(String state, Object... dataArr) {
         if (dataArr.length % 2 != 0) {
             LOGGER.error("Data is not a multiple of 2!");
             return;
@@ -130,25 +127,27 @@ public class JShellRemote {
 
         System.out.println("dataArr = " + Arrays.toString(dataArr));
 
-        var data = new ArrayList<SerializedVariable>();
+        var variables = new ArrayList<SerializedVariable>();
         for (int i = 0; i < dataArr.length; i += 2) {
-            data.add(new SerializedVariable((String) dataArr[i], dataArr[i + 1]));
+
+            variables.add(SerializedVariable.newBuilder()
+                    .setName((String) dataArr[i])
+                    .setObject(GSON.toJson(dataArr[i + 1]))
+                    .build());
         }
 
-        var first = data.get(0);
-        System.out.println("first = " + first);
-        System.out.println(first.getObject());
-        System.out.println(GSON.toJson(first.getObject()));
-
-        instance.sendCallbackResponse(new CodeExecutionCallbackResponse(1, "Success", requestState, state, data.stream().map(SerializedVariable::getName).collect(Collectors.toUnmodifiableList()), data));
+        instance.sendCallbackResponse(CodeExecutionCallbackResponse.newBuilder()
+                .setCallbackState(state)
+                .addAllSnippetResult(variables.stream().map(SerializedVariable::getName).collect(Collectors.toUnmodifiableList()))
+                .addAllVariables(variables)
+                .build());
     }
 
     private void sendCallbackResponse(CodeExecutionCallbackResponse response) {
-        LOGGER.info("Sending callback response");
-        socketCommunication.sendPayload(response);
+        grpcClient.getService().acceptCallback(response);
     }
 
-    public BasicPayload runCode(String state, String code, List<String> returningVariables) {
+    public void runCode(String code, List<String> returningVariables, StreamObserver<CodeExecutionResponse> response) {
         LOGGER.info("Preprocessing code...");
 
         var matcher = CALLBACK_PATTERN.matcher(code);
@@ -163,7 +162,7 @@ public class JShellRemote {
                 if (!variables.isBlank()) {
                     variables = ", " + variables;
                 }
-                return String.format("JShellRemote.callback(\"%s\", \"%s\"%s);", state, callbackState, variables);
+                return String.format("JShellRemote.callback(\"%s\", %s);", callbackState, variables);
             }
 
             return result.group();
@@ -177,12 +176,14 @@ public class JShellRemote {
                 var value = sne.value();
                 var snippet = sne.snippet();
                 if (exception != null) {
-                    return new ErrorPayload("Error occurred", state, Utility.getStackTrace(exception));
+                    response.onError(exception);
+                    return;
                 } else if (sne.status() == Snippet.Status.REJECTED) {
                     var message = getDiagnostics(snippet).map(diagnostics ->
                             joinDiagnostics(snippet.source(), diagnostics))
                             .orElse("Rejected for unknown reasons");
-                    return new ErrorPayload(message, state, Utility.getStackTrace());
+                    response.onError(new RuntimeException(message));
+                    return;
                 } else if (value != null) {
                     if (snippet.kind() == Snippet.Kind.VAR) {
                         getKey(snippet).ifPresent(retrieved::add);
@@ -193,7 +194,10 @@ public class JShellRemote {
             }
         }
 
-        return new CodeExecutionResponse(1, "Success", state, retrieved, getVariables(retrieved, returningVariables));
+        response.onNext(CodeExecutionResponse.newBuilder()
+                .addAllSnippetResult(retrieved)
+                .addAllVariables(getVariables(retrieved, returningVariables))
+                .build());
     }
 
     @SafeVarargs
@@ -202,7 +206,10 @@ public class JShellRemote {
         return executionControl.getFields()
                 .stream()
                 .filter(field -> include.contains(field.getName()))
-                .map(field -> new SerializedVariable(field.getName(), get(field)))
+                .map(field -> SerializedVariable.newBuilder()
+                        .setName(field.getName())
+                        .setObject(GSON.toJson(get(field)))
+                        .build())
                 .filter(snippet -> snippet.getObject() != null)
                 .collect(Collectors.toUnmodifiableList());
     }

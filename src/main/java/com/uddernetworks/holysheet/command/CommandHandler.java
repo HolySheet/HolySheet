@@ -1,6 +1,7 @@
 package com.uddernetworks.holysheet.command;
 
 import com.google.api.services.drive.model.User;
+import com.uddernetworks.grpc.HolysheetService;
 import com.uddernetworks.holysheet.HolySheet;
 import com.uddernetworks.holysheet.console.ConsoleTableBuilder;
 import com.uddernetworks.holysheet.utility.Utility;
@@ -25,10 +26,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import static com.uddernetworks.grpc.HolysheetService.UploadRequest.Compression.*;
+import static com.uddernetworks.grpc.HolysheetService.UploadRequest.Upload.MULTIPART;
 import static com.uddernetworks.holysheet.utility.Utility.humanReadableByteCountSI;
 
 @CommandLine.Command(name = "example", mixinStandardHelpOptions = true, version = "DriveStore 1.0.0", customSynopsis = {
-        "([-cm] -u=<file>... | [-cm] -e=<id> | -d=<name/id>... |  -r=<name/id>...) [-asixphlV]"
+        "([-cm] -u=<file>... | [-cm] -e=<id> | -d=<name/id>... |  -r=<name/id>...) [-agphlV]"
 })
 public class CommandHandler implements Runnable {
 
@@ -44,14 +47,8 @@ public class CommandHandler implements Runnable {
     @Option(names = {"-a", "--credentials"}, description = "The (absolute or relative) location of your personal credentials.json file")
     String credentials = "credentials.json";
 
-    @Option(names = {"-s", "--socket"}, description = "Starts communication socket on the given port, used to interface with other apps")
-    int socket = -1;
-
-    @Option(names = {"-i", "--io"}, description = "Starts communication via console")
-    boolean io = false;
-
-    @Option(names = {"-x", "--codeexec"}, description = "Enables Java code execution required on some clients. Not recommended while running with sockets.")
-    boolean codeExec = false;
+    @Option(names = {"-g", "--grpc"}, description = "Starts the gRPC server on the given port, used to interface with other apps")
+    int grpc = -1;
 
     @Option(names = {"-p", "--parent"}, description = "Kills the process (When running with socket) when the given PID is killed")
     int parent = -1;
@@ -90,21 +87,9 @@ public class CommandHandler implements Runnable {
 
         holySheet.init(credentials);
 
-        if (socket > 0 || io) {
+        if (grpc > 0) {
             holySheet.getjShellRemote().start();
-            var communication = holySheet.getSocketCommunication();
-            communication.setCodeExecution(codeExec);
-
-            if (io) {
-                communication.listenIO();
-            } else {
-                if (codeExec) {
-                    LOGGER.warn("Running with code execution enabled (-x/--codeexec) with sockets is dangerous! It opens up for vulnerabilities, if any programs are targeting this.");
-                }
-                communication.startSocket(socket);
-            }
-
-            Utility.sleep(Long.MAX_VALUE);
+            holySheet.getGrpcClient().start(grpc);
             return;
         }
 
@@ -180,7 +165,7 @@ public class CommandHandler implements Runnable {
             long start = System.currentTimeMillis();
             var name = FilenameUtils.getName(file.getAbsolutePath());
 
-            var ups = sheetIO.uploadData(name, sheetSize, compression, "multipart", new FileInputStream(file));
+            var ups = sheetIO.uploadData(name, sheetSize, compression ? ZIP : NONE, MULTIPART, new FileInputStream(file));
 
             LOGGER.info("Uploaded {} in {}ms", ups.getId(), System.currentTimeMillis() - start);
         } catch (IOException e) {
@@ -232,7 +217,7 @@ public class CommandHandler implements Runnable {
 
     private void cloneFiles() {
         var io = holySheet.getSheetManager().getSheetIO();
-        param.clone.forEach(id -> io.cloneFile(id, sheetSize, compression));
+        param.clone.forEach(id -> io.cloneFile(id, sheetSize, compression ? ZIP : NONE));
     }
 
     private void suicideForParent(int parent) {

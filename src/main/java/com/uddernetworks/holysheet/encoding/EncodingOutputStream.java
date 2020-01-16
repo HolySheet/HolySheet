@@ -25,7 +25,7 @@ public class EncodingOutputStream extends FilterOutputStream {
 //    public static final int CELL_WIDTH = 0x7FFF; // Half of 0xFFFF
 //    public static final int CELL_WIDTH = 5; // Half of 0xFFFF
 
-    private final int maxLength;
+    private final long maxLength;
 
     private int length = 0;
     private int bufferLength = 0;
@@ -37,7 +37,7 @@ public class EncodingOutputStream extends FilterOutputStream {
     private ByteArrayOutputStream buffer;
     private List<byte[]> chunks = new ArrayList<>();
 
-    public EncodingOutputStream(int maxLength) {
+    public EncodingOutputStream(long maxLength) {
         super(new ByteArrayOutputStream());
         this.maxLength = maxLength;
         buffer = new ByteArrayOutputStream();
@@ -118,7 +118,7 @@ public class EncodingOutputStream extends FilterOutputStream {
         return chunks;
     }
 
-    public static EncodingOutputStream encode(InputStream inputStream, int maxLength) throws IOException {
+    public static EncodingOutputStream encode(InputStream inputStream, long maxLength) throws IOException {
         var encodingOut = new EncodingOutputStream(maxLength);
         IOUtils.copy(inputStream, encodingOut);
         encodingOut.flush();

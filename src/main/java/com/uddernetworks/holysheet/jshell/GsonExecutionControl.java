@@ -22,16 +22,11 @@
  * or visit www.oracle.com if you need additional information or have any
  * questions.
  */
-package com.uddernetworks.holysheet.socket.jshell;
+package com.uddernetworks.holysheet.jshell;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.uddernetworks.holysheet.socket.payload.SerializedVariable;
 import jdk.jshell.execution.DirectExecutionControl;
 import jdk.jshell.execution.LoaderDelegate;
 import jdk.jshell.spi.SPIResolutionException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
@@ -52,12 +47,6 @@ import java.util.stream.Collectors;
  * @since 9
  */
 public class GsonExecutionControl extends DirectExecutionControl {
-
-    private static final boolean SERIALIZE_OUTPUT = false;
-
-    private static final Gson GSON = new GsonBuilder()
-            .setPrettyPrinting()
-            .create();
 
     private final Map<Class<?>, List<Field>> classFields = new ConcurrentHashMap<>();
 
@@ -182,12 +171,7 @@ public class GsonExecutionControl extends DirectExecutionControl {
             throw iaeEx.get();
         }
 
-
-        if (!SERIALIZE_OUTPUT) {
-            return "";
-        }
-
-        return GSON.toJson(new SerializedVariable("?", res[0]));
+        return null;
     }
 
     public List<Field> getFields() {

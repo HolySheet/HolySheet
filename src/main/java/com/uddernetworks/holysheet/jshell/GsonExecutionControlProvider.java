@@ -1,6 +1,5 @@
-package com.uddernetworks.holysheet.socket.jshell;
+package com.uddernetworks.holysheet.jshell;
 
-import jdk.jshell.execution.LocalExecutionControl;
 import jdk.jshell.spi.ExecutionControl;
 import jdk.jshell.spi.ExecutionControlProvider;
 import jdk.jshell.spi.ExecutionEnv;

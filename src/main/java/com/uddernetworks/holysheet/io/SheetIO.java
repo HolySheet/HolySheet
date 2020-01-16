@@ -1,10 +1,11 @@
 package com.uddernetworks.holysheet.io;
 
 import com.google.api.client.http.ByteArrayContent;
-import com.google.api.client.http.GenericUrl;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.model.File;
 import com.google.api.services.sheets.v4.Sheets;
+import com.uddernetworks.grpc.HolysheetService.UploadRequest.Compression;
+import com.uddernetworks.grpc.HolysheetService.UploadRequest.Upload;
 import com.uddernetworks.holysheet.Mime;
 import com.uddernetworks.holysheet.SheetManager;
 import com.uddernetworks.holysheet.encoding.DecodingOutputStream;
@@ -14,7 +15,6 @@ import com.uddernetworks.holysheet.utility.Utility;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -34,7 +34,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-import static com.uddernetworks.holysheet.utility.Utility.round;
 import static com.uddernetworks.holysheet.utility.Utility.humanReadableByteCountSI;
 
 public class SheetIO {
@@ -130,12 +129,12 @@ public class SheetIO {
         }
     }
 
-    public File uploadData(String title, int maxSheetSize, boolean compress, String uploadType, InputStream data) throws IOException {
+    public File uploadData(String title, long maxSheetSize, Compression compress, Upload uploadType, InputStream data) throws IOException {
         return uploadData(title, maxSheetSize, compress, uploadType, data, null);
     }
 
-    public File uploadData(String title, int maxSheetSize, boolean compress, String uploadType, InputStream data, Consumer<Double> statusUpdate) throws IOException {
-        if (compress) {
+    public File uploadData(String title, long maxSheetSize, Compression compress, Upload uploadType, InputStream data, Consumer<Double> statusUpdate) throws IOException {
+        if (compress == Compression.ZIP) {
             var dataOptional = CompressionUtils.compress(data);
             if (dataOptional.isEmpty()) {
                 LOGGER.error("AN error occurred while compressing file! Try using a smaller file.");
@@ -177,7 +176,7 @@ public class SheetIO {
         return parent;
     }
 
-    private Map<FileChunk, File> processChunks(List<FileChunk> chunks, File parent, String uploadType, String title, long size, Consumer<Double> statusUpdate) {
+    private Map<FileChunk, File> processChunks(List<FileChunk> chunks, File parent, Upload uploadType, String title, long size, Consumer<Double> statusUpdate) {
         var index = new AtomicInteger();
         var totalBytesUploaded = new AtomicLong();
         final double totalChunks = chunks.size();
@@ -202,7 +201,7 @@ public class SheetIO {
         System.out.println(Utility.progressBar("Uploading " + title, humanReadableByteCountSI(currSize) + "/" + humanReadableByteCountSI(totalSize), 40, index / (double) total));
     }
 
-    private File processChunk(FileChunk chunk, File parent, String uploadType) {
+    private File processChunk(FileChunk chunk, File parent, Upload uploadType) {
         try {
             // Stagger uploads STAGGER_MS ms
 //            sleep(chunk.getIndex() * STAGGER_MS);
@@ -290,7 +289,7 @@ public class SheetIO {
         }
     }
 
-    public void cloneFile(String fileId, int maxSheetSize, boolean compress) {
+    public void cloneFile(String fileId, int maxSheetSize, Compression compress) {
         downloadFile(fileId).ifPresent(fileData -> {
             var file = fileData.getFile();
             var in = fileData.getIn();
@@ -300,7 +299,7 @@ public class SheetIO {
             LOGGER.info("Saving {}...", name);
 
             try {
-                uploadData(name, maxSheetSize, compress, "multipart", in);
+                uploadData(name, maxSheetSize, compress, Upload.MULTIPART, in);
             } catch (IOException e) {
                 LOGGER.error("An error occurred while uploading the " + fileId, e);
             }
