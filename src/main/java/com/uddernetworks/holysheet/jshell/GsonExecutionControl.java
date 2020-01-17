@@ -171,7 +171,7 @@ public class GsonExecutionControl extends DirectExecutionControl {
             throw iaeEx.get();
         }
 
-        return null;
+        return "";
     }
 
     public List<Field> getFields() {

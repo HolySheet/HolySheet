@@ -23,6 +23,7 @@ import com.uddernetworks.holysheet.command.CommandHandler;
 import com.uddernetworks.holysheet.io.SheetIO;
 import io.grpc.stub.StreamObserver;
 import org.apache.commons.io.FilenameUtils;
+import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -128,7 +129,7 @@ public class HolySheetServiceImpl extends HolySheetServiceGrpc.HolySheetServiceI
             response.onNext(UploadResponse.newBuilder()
                     .setStatus(UploadStatus.COMPLETE)
                     .setPercentage(1)
-                    .setItems(ListItem.newBuilder()
+                    .setItem(ListItem.newBuilder()
                             .setName(uploaded.getName())
                             .setId(uploaded.getId())
                             .setSize(CommandHandler.getSize(uploaded))

@@ -1,6 +1,8 @@
 package com.uddernetworks.holysheet.utility;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
+import org.apache.commons.lang3.math.NumberUtils;
 
 import java.util.Collection;
 import java.util.Optional;
@@ -10,6 +12,18 @@ public class Utility {
     public static double round(double number, int places) {
         double scale = Math.pow(10, places);
         return Math.round(number * scale) / scale;
+    }
+
+    public static int tryParse(String number) {
+        return tryParse(number, -1);
+    }
+
+    public static int tryParse(String number, int def) {
+        if (!StringUtils.isNumeric(number)) {
+            return def;
+        }
+
+        return Integer.parseInt(number);
     }
 
     public static String progressBar(String text, int width, double percent) {

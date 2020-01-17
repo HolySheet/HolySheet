@@ -35,6 +35,7 @@ public class SheetManager {
         this.holySheet = holySheet;
         this.drive = holySheet.getDrive();
         this.sheets = holySheet.getSheets();
+        this.sheetIO = new SheetIO(this);
     }
 
     public void init() {
@@ -50,8 +51,6 @@ public class SheetManager {
             });
 
             LOGGER.info("docstore id: {}", docstore.getId());
-
-            sheetIO = new SheetIO(this);
         } catch (IOException e) {
             LOGGER.error("An error occurred while finding or creating docstore directory", e);
         }

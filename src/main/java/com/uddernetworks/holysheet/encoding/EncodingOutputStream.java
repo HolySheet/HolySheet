@@ -40,7 +40,7 @@ public class EncodingOutputStream extends FilterOutputStream {
     public EncodingOutputStream(long maxLength) {
         super(new ByteArrayOutputStream());
         this.maxLength = maxLength;
-        buffer = new ByteArrayOutputStream();
+        this.buffer = new ByteArrayOutputStream();
     }
 
     @Override

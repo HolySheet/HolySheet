@@ -72,6 +72,7 @@ test {
 run {
     standardInput = System.in
     jvmArgs("--add-opens", "jdk.jshell/jdk.jshell=ALL-UNNAMED")
+    jvmArgs("--add-opens", "java.base/jdk.internal.misc=ALL-UNNAMED")
 }
 
 compileJava {

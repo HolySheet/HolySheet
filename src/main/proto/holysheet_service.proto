@@ -51,7 +51,7 @@ message UploadRequest {
 message UploadResponse {
     UploadStatus status = 1; // The upload status
     double percentage = 2; // The 0-1 percentage of the upload
-    ListItem items = 3; // A collection of files/items uploaded. This list is only populated if the status is COMPLETE.
+    ListItem item = 3; // The new ListItem uploaded. This populated if the status is COMPLETE.
 
     enum UploadStatus {
         PENDING = 0;

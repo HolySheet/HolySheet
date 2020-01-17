@@ -8,6 +8,8 @@ import com.uddernetworks.grpc.HolysheetService.CodeExecutionResponse;
 import com.uddernetworks.grpc.HolysheetService.SerializedVariable;
 import com.uddernetworks.holysheet.grpc.GRPCClient;
 import com.uddernetworks.holysheet.utility.Utility;
+import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
 import jdk.jshell.Diag;
 import jdk.jshell.JShell;
@@ -125,11 +127,8 @@ public class JShellRemote {
             return;
         }
 
-        System.out.println("dataArr = " + Arrays.toString(dataArr));
-
         var variables = new ArrayList<SerializedVariable>();
         for (int i = 0; i < dataArr.length; i += 2) {
-
             variables.add(SerializedVariable.newBuilder()
                     .setName((String) dataArr[i])
                     .setObject(GSON.toJson(dataArr[i + 1]))
@@ -162,7 +161,7 @@ public class JShellRemote {
                 if (!variables.isBlank()) {
                     variables = ", " + variables;
                 }
-                return String.format("JShellRemote.callback(\"%s\", %s);", callbackState, variables);
+                return String.format("JShellRemote.callback(\"%s\"%s);", callbackState, variables);
             }
 
             return result.group();
@@ -176,13 +175,16 @@ public class JShellRemote {
                 var value = sne.value();
                 var snippet = sne.snippet();
                 if (exception != null) {
-                    response.onError(exception);
+                    response.onError(new StatusRuntimeException(Status.fromThrowable(exception)));
+                    LOGGER.error("An error occurred in snippet", exception);
                     return;
                 } else if (sne.status() == Snippet.Status.REJECTED) {
+                    LOGGER.info("HERE!!!22222222");
                     var message = getDiagnostics(snippet).map(diagnostics ->
                             joinDiagnostics(snippet.source(), diagnostics))
                             .orElse("Rejected for unknown reasons");
-                    response.onError(new RuntimeException(message));
+                    response.onError(new StatusRuntimeException(Status.INTERNAL));
+                    LOGGER.info("An error occurred resulting in a rejected snippet:\n{}", message);
                     return;
                 } else if (value != null) {
                     if (snippet.kind() == Snippet.Kind.VAR) {

@@ -83,9 +83,10 @@ public class SheetIO {
             return Optional.empty();
         }
 
-        boolean compressed = props.get("compressed").equals("true");
+        // Defaults to NONE(0), will never be null
+        var compression = parseLegacyCompression(props.get("compressed"));
 
-        LOGGER.info("File is {}", compressed ? "compressed" : "uncompressed");
+        LOGGER.info("File compression: {}", compression.name());
 
         var files = sheetManager.getAllSheets(parent.getId());
 
@@ -107,7 +108,7 @@ public class SheetIO {
 
         var finalStream = encodingOut.getOut();
 
-        if (compressed) {
+        if (compression == Compression.ZIP) {
             LOGGER.info("Uncompressing data...");
             finalStream = CompressionUtils.uncompressToOutputStream(encodingOut.getOut().toByteArray());
         }
@@ -115,6 +116,16 @@ public class SheetIO {
         LOGGER.info("Downloaded and unencoded {}", humanReadableByteCountSI(finalStream.size()));
 
         return Optional.of(finalStream);
+    }
+
+    private Compression parseLegacyCompression(String compression) {
+        if (compression.equals("true")) {
+            return Compression.ZIP;
+        } else if (compression.equals("false")) {
+            return Compression.NONE;
+        }
+
+        return Compression.forNumber(Utility.tryParse(compression, 0));
     }
 
     private void downloadSheet(File file, OutputStream out) {
@@ -136,8 +147,11 @@ public class SheetIO {
     public File uploadData(String title, long maxSheetSize, Compression compress, Upload uploadType, InputStream data, Consumer<Double> statusUpdate) throws IOException {
         if (compress == Compression.ZIP) {
             var dataOptional = CompressionUtils.compress(data);
+
             if (dataOptional.isEmpty()) {
-                LOGGER.error("AN error occurred while compressing file! Try using a smaller file.");
+                LOGGER.error("An error occurred while compressing file! Try using a smaller file. Continuing without compression.");
+            } else {
+                data = dataOptional.get();
             }
         }
 
@@ -152,7 +166,7 @@ public class SheetIO {
                 "directParent", "true",
                 "size", String.valueOf(encoded.getLength()),
                 "sheets", String.valueOf(byteArrayList.size()),
-                "compressed", String.valueOf(compress)
+                "compressed", String.valueOf(compress.getNumber())
         ));
 
         LOGGER.info("Created parent docstore/{} ({})", parent.getName(), parent.getId());
