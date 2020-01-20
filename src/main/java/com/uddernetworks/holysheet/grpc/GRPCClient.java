@@ -14,8 +14,14 @@ public class GRPCClient {
 
     private final HolySheetServiceImpl service;
 
-    public GRPCClient(HolySheet holySheet, SheetManager sheetManager) {
-        this.service = new HolySheetServiceImpl(holySheet, sheetManager);
+    public GRPCClient(HolySheet holySheet) {
+        this.service = new HolySheetServiceImpl(holySheet);
+    }
+
+    public static void main(String[] args) {
+//        System.out.println(System.getenv("CLIENT_SECRET"));
+        var client = new GRPCClient(null);
+        client.start(8888);
     }
 
     public void start(int port) {

@@ -1,10 +1,10 @@
 package com.uddernetworks.holysheet.command;
 
 import com.google.api.services.drive.model.User;
-import com.uddernetworks.grpc.HolysheetService;
 import com.uddernetworks.holysheet.HolySheet;
+import com.uddernetworks.holysheet.SheetManager;
 import com.uddernetworks.holysheet.console.ConsoleTableBuilder;
-import com.uddernetworks.holysheet.utility.Utility;
+import com.uddernetworks.holysheet.io.SheetIO;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -40,6 +40,8 @@ public class CommandHandler implements Runnable {
     public static final Pattern ID_PATTERN = Pattern.compile("([a-zA-Z0-9-_]+)");
 
     private final HolySheet holySheet;
+    private SheetManager sheetManager;
+    private SheetIO sheetIO;
 
     @Option(names = {"-l", "--list"}, description = "Lists the uploaded files in Google Sheets")
     boolean list;
@@ -86,6 +88,9 @@ public class CommandHandler implements Runnable {
         suicideForParent(parent);
 
         holySheet.init(credentials);
+        var authManager = holySheet.getAuthManager();
+        sheetManager = new SheetManager(authManager.getDrive(), authManager.getSheets());
+        sheetIO = sheetManager.getSheetIO();
 
         if (grpc > 0) {
             holySheet.getjShellRemote().start();
@@ -120,7 +125,6 @@ public class CommandHandler implements Runnable {
     }
 
     private void list() {
-        var docManager = holySheet.getSheetManager();
         var table = new ConsoleTableBuilder()
                 .addColumn("Name", 20)
                 .addColumn("Size", 8)
@@ -130,7 +134,7 @@ public class CommandHandler implements Runnable {
                 .addColumn("Id", 33)
                 .setHorizontalSpacing(3);
         System.out.println("\n");
-        System.out.println(table.generateTable(docManager.listUploads()
+        System.out.println(table.generateTable(sheetManager.listUploads()
                 .stream()
                 .map(file -> List.of(
                         file.getName(),
@@ -159,8 +163,6 @@ public class CommandHandler implements Runnable {
 
         LOGGER.info("Uploading {}...", file.getName());
 
-        var sheetIO = holySheet.getSheetManager().getSheetIO();
-
         try {
             long start = System.currentTimeMillis();
             var name = FilenameUtils.getName(file.getAbsolutePath());
@@ -181,14 +183,12 @@ public class CommandHandler implements Runnable {
 
     private void downloadIdName(String idName) {
         try {
-            var docManager = holySheet.getSheetManager();
-
             if (ID_PATTERN.matcher(idName).matches()) {
-                idName = docManager.getIdOfName(idName).orElse(idName);
+                idName = sheetManager.getIdOfName(idName).orElse(idName);
             }
 
             long start = System.currentTimeMillis();
-            var sheet = docManager.getFile(idName);
+            var sheet = sheetManager.getFile(idName);
 
             if (sheet == null) {
                 LOGGER.info("Couldn't find file with id/name of {}", idName);
@@ -196,7 +196,7 @@ public class CommandHandler implements Runnable {
             }
 
             try (var fileStream = new FileOutputStream(sheet.getName())) {
-                var byteOptional = docManager.getSheetIO().downloadData(idName);
+                var byteOptional = sheetManager.getSheetIO().downloadData(idName);
                 if (byteOptional.isEmpty()) {
                     LOGGER.error("An error occurred while downloading {}", idName);
                     return;
@@ -212,12 +212,11 @@ public class CommandHandler implements Runnable {
     }
 
     private void remove() {
-        param.remove.forEach(holySheet.getSheetManager().getSheetIO()::deleteData);
+        param.remove.forEach(sheetIO::deleteData);
     }
 
     private void cloneFiles() {
-        var io = holySheet.getSheetManager().getSheetIO();
-        param.clone.forEach(id -> io.cloneFile(id, sheetSize, compression ? ZIP : NONE));
+        param.clone.forEach(id -> sheetIO.cloneFile(id, sheetSize, compression ? ZIP : NONE));
     }
 
     private void suicideForParent(int parent) {

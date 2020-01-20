@@ -1,6 +1,6 @@
 package com.uddernetworks.holysheet.grpc;
 
-import com.uddernetworks.grpc.HolySheetServiceGrpc;
+import com.uddernetworks.grpc.HolySheetServiceGrpc.HolySheetServiceImplBase;
 import com.uddernetworks.grpc.HolysheetService.CodeExecutionCallbackResponse;
 import com.uddernetworks.grpc.HolysheetService.CodeExecutionRequest;
 import com.uddernetworks.grpc.HolysheetService.CodeExecutionResponse;
@@ -18,12 +18,12 @@ import com.uddernetworks.grpc.HolysheetService.UploadRequest;
 import com.uddernetworks.grpc.HolysheetService.UploadResponse;
 import com.uddernetworks.grpc.HolysheetService.UploadResponse.UploadStatus;
 import com.uddernetworks.holysheet.HolySheet;
+import com.uddernetworks.holysheet.RemoteAuthManager;
 import com.uddernetworks.holysheet.SheetManager;
 import com.uddernetworks.holysheet.command.CommandHandler;
 import com.uddernetworks.holysheet.io.SheetIO;
 import io.grpc.stub.StreamObserver;
 import org.apache.commons.io.FilenameUtils;
-import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,51 +36,58 @@ import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.util.stream.Collectors;
 
-public class HolySheetServiceImpl extends HolySheetServiceGrpc.HolySheetServiceImplBase {
+public class HolySheetServiceImpl extends HolySheetServiceImplBase {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(HolySheetServiceImpl.class);
 
     private final HolySheet holySheet;
-    private final SheetManager sheetManager;
-    private final SheetIO sheetIO;
+    private SheetManager sheetManager;
+    private SheetIO sheetIO;
     private StreamObserver<CodeExecutionCallbackResponse> response;
 
-    public HolySheetServiceImpl(HolySheet holySheet, SheetManager sheetManager) {
+    public HolySheetServiceImpl(HolySheet holySheet) {
         this.holySheet = holySheet;
-        this.sheetManager = sheetManager;
-        this.sheetIO = sheetManager.getSheetIO();
+    }
+
+    private void useToken(String token) {
+        var authManager = new RemoteAuthManager();
+        authManager.useToken(token);
+        sheetManager = new SheetManager(authManager.getDrive(), authManager.getSheets());
+        sheetIO = sheetManager.getSheetIO();
     }
 
     @Override
     public void listFiles(ListRequest request, StreamObserver<ListResponse> response) {
-        synchronized (this.sheetManager) {
-            var files = this.sheetManager.listUploads()
-                    .stream()
-                    .map(file -> {
-                        var owner = file.getOwners().get(0);
-                        return ListItem.newBuilder()
-                                .setName(file.getName())
-                                .setId(file.getId())
-                                .setSize(CommandHandler.getSize(file))
-                                .setSheets(CommandHandler.getSheetCount(file))
-                                .setDate(file.getModifiedTime().getValue())
-                                .setSelfOwned(owner.getMe())
-                                .setOwner(owner.getDisplayName())
-                                .setDriveLink(file.getWebViewLink())
-                                .build();
-                    })
-                    .collect(Collectors.toUnmodifiableList());
+        useToken(request.getToken());
 
-            response.onNext(ListResponse.newBuilder()
-                    .addAllItems(files)
-                    .build());
+        var files = this.sheetManager.listUploads()
+                .stream()
+                .map(file -> {
+                    var owner = file.getOwners().get(0);
+                    return ListItem.newBuilder()
+                            .setName(file.getName())
+                            .setId(file.getId())
+                            .setSize(CommandHandler.getSize(file))
+                            .setSheets(CommandHandler.getSheetCount(file))
+                            .setDate(file.getModifiedTime().getValue())
+                            .setSelfOwned(owner.getMe())
+                            .setOwner(owner.getDisplayName())
+                            .setDriveLink(file.getWebViewLink())
+                            .build();
+                })
+                .collect(Collectors.toUnmodifiableList());
 
-            response.onCompleted();
-        }
+        response.onNext(ListResponse.newBuilder()
+                .addAllItems(files)
+                .build());
+
+        response.onCompleted();
     }
 
     @Override
     public void uploadFile(UploadRequest request, StreamObserver<UploadResponse> response) {
+        useToken(request.getToken());
+
         String name;
         InputStream data;
 
@@ -150,6 +157,8 @@ public class HolySheetServiceImpl extends HolySheetServiceGrpc.HolySheetServiceI
 
     @Override
     public void downloadFile(DownloadRequest request, StreamObserver<DownloadResponse> response) {
+        useToken(request.getToken());
+
         try {
             var id = request.getId();
 
@@ -204,6 +213,8 @@ public class HolySheetServiceImpl extends HolySheetServiceGrpc.HolySheetServiceI
 
     @Override
     public void removeFile(RemoveRequest request, StreamObserver<RemoveResponse> response) {
+        useToken(request.getToken());
+
         response.onNext(RemoveResponse.newBuilder()
                 .setStatus(RemoveStatus.PENDING)
                 .setPercentage(0)

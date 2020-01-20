@@ -24,38 +24,16 @@ public class SheetManager {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SheetManager.class);
 
-    private final HolySheet holySheet;
     private final Drive drive;
     private final Sheets sheets;
     private SheetIO sheetIO;
 
-    private File docstore;
+    private File sheetStore;
 
-    public SheetManager(HolySheet holySheet) {
-        this.holySheet = holySheet;
-        this.drive = holySheet.getDrive();
-        this.sheets = holySheet.getSheets();
-        this.sheetIO = new SheetIO(this);
-    }
-
-    public void init() {
-        try {
-            LOGGER.info("Finding docstore folder...");
-
-            docstore = getCollectionFirst(getFiles(1, "name = 'docstore'", Mime.FOLDER)).orElseGet(() -> {
-                try {
-                    return createFolder("docstore");
-                } catch (IOException e) {
-                    throw new UncheckedIOException(e);
-                }
-            });
-
-            LOGGER.info("docstore id: {}", docstore.getId());
-        } catch (IOException e) {
-            LOGGER.error("An error occurred while finding or creating docstore directory", e);
-        }
-
-        LOGGER.info("Done!");
+    public SheetManager(Drive drive, Sheets sheets) {
+        this.drive = drive;
+        this.sheets = sheets;
+        this.sheetIO = new SheetIO(this, drive, sheets);
     }
 
     public File getFile(String id) throws IOException {
@@ -64,7 +42,7 @@ public class SheetManager {
 
     public Optional<String> getIdOfName(String name) {
         try {
-            return getCollectionFirst(getFiles(-1, "parents in '" + docstore.getId() + "' and name contains '" + name.replace("'", "") + "'", Mime.DOCUMENT)).map(File::getId);
+            return getCollectionFirst(getFiles(-1, "parents in '" + getSheetStore().getId() + "' and name contains '" + name.replace("'", "") + "'", Mime.DOCUMENT)).map(File::getId);
         } catch (IOException e) {
             return Optional.empty();
         }
@@ -190,16 +168,26 @@ public class SheetManager {
         return Optional.of(q);
     }
 
-    public Drive getDrive() {
-        return drive;
+    private File createSheetStore() throws IOException {
+        return getCollectionFirst(getFiles(1, "name = 'sheetStore'", Mime.FOLDER)).orElseGet(() -> {
+            try {
+                return createFolder("sheetStore");
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        });
     }
 
-    public Sheets getSheets() {
-        return sheets;
-    }
+    public File getSheetStore() {
+        try {
+            if (sheetStore == null) {
+                return (sheetStore = createSheetStore());
+            }
 
-    public File getDocstore() {
-        return docstore;
+            return sheetStore;
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     public SheetIO getSheetIO() {

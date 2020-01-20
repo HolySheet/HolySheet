@@ -5,6 +5,7 @@ import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 public class Utility {
@@ -54,16 +55,16 @@ public class Utility {
     /**
      * Gets a Collection Optional; a safe optional of the first element of a given collection.
      *
-     * @param collection A collection
+     * @param list A list
      * @param <T> The type
      * @return Either an empty optional if the collection is empty, or an optional of the first element
      */
-    public static <T> Optional<T> getCollectionFirst(Collection<T> collection) {
-        for (var t : collection) {
-            return Optional.of(t);
+    public static <T> Optional<T> getCollectionFirst(List<T> list) {
+        if (list.isEmpty()) {
+            return Optional.empty();
         }
 
-        return Optional.empty();
+        return Optional.ofNullable(list.get(0));
     }
 
     /**

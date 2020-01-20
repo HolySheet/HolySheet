@@ -15,12 +15,11 @@ import java.security.GeneralSecurityException;
 public class HolySheet {
     private static final Logger LOGGER = LoggerFactory.getLogger(HolySheet.class);
 
-    private AuthManager authManager;
-    private SheetManager sheetManager;
+    private LocalAuthManager authManager;
     private GRPCClient grpcClient;
     private JShellRemote jShellRemote;
-    private Drive drive;
-    private Sheets sheets;
+//    private Drive drive;
+//    private Sheets sheets;
 
     public static void main(String[] args) {
         new HolySheet().start(args);
@@ -38,17 +37,10 @@ public class HolySheet {
         try {
             LOGGER.info("Initializing everything...");
 
-            authManager = new AuthManager(credentialPath);
+            authManager = new LocalAuthManager(credentialPath);
             authManager.initialize();
-            drive = authManager.getDrive();
-            sheets = authManager.getSheets();
-
-            sheetManager = new SheetManager(this);
-            grpcClient = new GRPCClient(this, sheetManager);
 
             jShellRemote = new JShellRemote(grpcClient);
-
-            sheetManager.init();
         } catch (GeneralSecurityException | IOException e) {
             LOGGER.error("Error initializing", e);
         }
@@ -58,23 +50,11 @@ public class HolySheet {
         return authManager;
     }
 
-    public SheetManager getSheetManager() {
-        return sheetManager;
-    }
-
     public GRPCClient getGrpcClient() {
         return grpcClient;
     }
 
     public JShellRemote getjShellRemote() {
         return jShellRemote;
-    }
-
-    public Drive getDrive() {
-        return drive;
-    }
-
-    public Sheets getSheets() {
-        return sheets;
     }
 }

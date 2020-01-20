@@ -48,13 +48,11 @@ public class SheetIO {
     private final SheetManager sheetManager;
     private final Drive drive;
     private final Sheets sheets;
-    private final File docstore;
 
-    public SheetIO(SheetManager sheetManager) {
+    public SheetIO(SheetManager sheetManager, Drive drive, Sheets sheets) {
         this.sheetManager = sheetManager;
-        this.drive = sheetManager.getDrive();
-        this.sheets = sheetManager.getSheets();
-        this.docstore = sheetManager.getDocstore();
+        this.drive = drive;
+        this.sheets = sheets;
     }
 
     public void downloadData(String id, Consumer<Double> statusUpdate, Consumer<String> onError, Consumer<ByteArrayOutputStream> onSuccess) throws IOException {
@@ -162,14 +160,14 @@ public class SheetIO {
 
         LOGGER.info("This upload will use {} sheets", byteArrayList.size());
 
-        var parent = sheetManager.createFolder(title, sheetManager.getDocstore(), Map.of(
+        var parent = sheetManager.createFolder(title, sheetManager.getSheetStore(), Map.of(
                 "directParent", "true",
                 "size", String.valueOf(encoded.getLength()),
                 "sheets", String.valueOf(byteArrayList.size()),
                 "compressed", String.valueOf(compress.getNumber())
         ));
 
-        LOGGER.info("Created parent docstore/{} ({})", parent.getName(), parent.getId());
+        LOGGER.info("Created parent sheetStore/{} ({})", parent.getName(), parent.getId());
 
         var chunks = new ArrayList<FileChunk>();
 

@@ -23,7 +23,8 @@ message SerializedVariable {
 
 
 message ListRequest {
-    string path = 1; // The remote drive path to list
+    string token = 1; // The Google authentication token
+    string path = 2; // The remote drive path to list
 }
 
 message ListResponse {
@@ -31,11 +32,12 @@ message ListResponse {
 }
 
 message UploadRequest {
-    string file = 1; // The file path, if uploading
-    string id = 2; // The file ID, if cloning
-    Upload upload = 3; // The upload type
-    Compression compression = 4; // The compression setting
-    int64 sheetSize = 5; // The maximum size (in bytes) each sheet can be
+    string token = 1; // The Google authentication token
+    string file = 2; // The file path, if uploading
+    string id = 3; // The file ID, if cloning
+    Upload upload = 4; // The upload type
+    Compression compression = 5; // The compression setting
+    int64 sheetSize = 6; // The maximum size (in bytes) each sheet can be
 
     enum Upload {
         MULTIPART = 0;
@@ -61,8 +63,9 @@ message UploadResponse {
 }
 
 message DownloadRequest {
-    string id = 1; // The Sheets-generated ID of the file to download
-    string path = 2; // The local file path to save the file to
+    string token = 1; // The Google authentication token
+    string id = 2; // The Sheets-generated ID of the file to download
+    string path = 3; // The local file path to save the file to
 }
 
 message DownloadResponse {
@@ -77,7 +80,8 @@ message DownloadResponse {
 }
 
 message RemoveRequest {
-    string id = 1; // The Sheets-generated ID of the file to remove
+    string token = 1; // The Google authentication token
+    string id = 2; // The Sheets-generated ID of the file to remove
 }
 
 message RemoveResponse {
@@ -92,7 +96,6 @@ message RemoveResponse {
 }
 
 message CodeExecutionRequest {
-
     string code = 1; // A snippet of Java code, exactly one complete snippet of source code, that is, one expression,
     // statement, variable declaration, method declaration, class declaration, or import. - JShell. Invoked on the server
 
@@ -100,8 +103,8 @@ message CodeExecutionRequest {
 }
 
 message CodeExecutionResponse {
-    repeated string snippetResult = 2; // A list of implicit or explicitly created variables in the snippet
-    repeated SerializedVariable variables = 3; // A list of variables listed in the request via returnVariables, and in this response via snippetResult
+    repeated string snippetResult = 1; // A list of implicit or explicitly created variables in the snippet
+    repeated SerializedVariable variables = 2; // A list of variables listed in the request via returnVariables, and in this response via snippetResult
 }
 
 message CodeExecutionCallbackResponse {
