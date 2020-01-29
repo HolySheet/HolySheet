@@ -9,8 +9,8 @@ group 'com.uddernetworks.holysheet'
 version '1.0.0'
 
 sourceCompatibility = 11
-//mainClassName = 'com.uddernetworks.holysheet.HolySheet'
-mainClassName = 'com.uddernetworks.holysheet.grpc.GRPCClient'
+mainClassName = 'com.uddernetworks.holysheet.HolySheet'
+//mainClassName = 'com.uddernetworks.holysheet.grpc.GRPCClient'
 
 repositories {
     mavenCentral()
@@ -71,7 +71,7 @@ test {
 }
 
 run {
-    args = ['--g=8080']
+//    args = ['--g=8080']
     standardInput = System.in
     jvmArgs("--add-opens", "jdk.jshell/jdk.jshell=ALL-UNNAMED")
     jvmArgs("--add-opens", "java.base/jdk.internal.misc=ALL-UNNAMED")

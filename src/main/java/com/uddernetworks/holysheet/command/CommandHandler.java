@@ -92,6 +92,8 @@ public class CommandHandler implements Runnable {
         sheetManager = new SheetManager(authManager.getDrive(), authManager.getSheets());
         sheetIO = sheetManager.getSheetIO();
 
+        System.out.println("grpc = " + grpc);
+
         if (grpc > 0) {
             holySheet.getjShellRemote().start();
             holySheet.getGrpcClient().start(grpc);
@@ -133,8 +135,11 @@ public class CommandHandler implements Runnable {
                 .addColumn("Date", 10)
                 .addColumn("Id", 33)
                 .setHorizontalSpacing(3);
+
+        var uploads = sheetManager.listUploads();
+
         System.out.println("\n");
-        System.out.println(table.generateTable(sheetManager.listUploads()
+        System.out.println(table.generateTable(uploads
                 .stream()
                 .map(file -> List.of(
                         file.getName(),
@@ -143,7 +148,14 @@ public class CommandHandler implements Runnable {
                         file.getOwners().stream().map(User::getDisplayName).collect(Collectors.joining(",")),
                         DATE_FORMAT.format(new Date(file.getModifiedTime().getValue())),
                         file.getId()
-                )).collect(Collectors.toUnmodifiableList())));
+                )).collect(Collectors.toList()), List.of(
+                "Total",
+                humanReadableByteCountSI(uploads.stream().mapToLong(file -> Long.parseLong(file.getProperties().get("size"))).sum()),
+                String.valueOf(uploads.stream().mapToInt(CommandHandler::getSheetCount).sum()),
+                "",
+                "",
+                ""
+        )));
     }
 
     private void upload() {
@@ -167,7 +179,7 @@ public class CommandHandler implements Runnable {
             long start = System.currentTimeMillis();
             var name = FilenameUtils.getName(file.getAbsolutePath());
 
-            var ups = sheetIO.uploadData(name, sheetSize, compression ? ZIP : NONE, MULTIPART, new FileInputStream(file));
+            var ups = sheetIO.uploadData(name, file.length(), sheetSize, compression ? ZIP : NONE, MULTIPART, new FileInputStream(file));
 
             LOGGER.info("Uploaded {} in {}ms", ups.getId(), System.currentTimeMillis() - start);
         } catch (IOException e) {

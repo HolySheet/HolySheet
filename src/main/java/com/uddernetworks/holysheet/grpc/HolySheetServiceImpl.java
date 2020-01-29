@@ -34,6 +34,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.nio.file.Files;
 import java.util.stream.Collectors;
 
 public class HolySheetServiceImpl extends HolySheetServiceImplBase {
@@ -67,6 +68,8 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
                     return ListItem.newBuilder()
                             .setName(file.getName())
                             .setId(file.getId())
+                            .setPath("") // TODO: Path & folders
+                            .setFolder(false)
                             .setSize(CommandHandler.getSize(file))
                             .setSheets(CommandHandler.getSheetCount(file))
                             .setDate(file.getModifiedTime().getValue())
@@ -88,8 +91,10 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
     public void uploadFile(UploadRequest request, StreamObserver<UploadResponse> response) {
         useToken(request.getToken());
 
-        String name;
+        var name = request.getName();
+        name = name.substring(0, Math.min(name.length() - 1, 32));
         InputStream data;
+        long fileSize = 0;
 
         try {
             if (!request.getFile().isBlank()) {
@@ -100,14 +105,14 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
                     return;
                 }
 
-                name = FilenameUtils.getName(file.getAbsolutePath());
+                fileSize = file.length();
                 data = new FileInputStream(file);
             } else {
                 var dataOptional = sheetIO.downloadFile(request.getId());
                 if (dataOptional.isPresent()) {
                     var fileData = dataOptional.get();
-                    name = fileData.getFile().getName();
                     data = fileData.getIn();
+                    fileSize = fileData.getSize();
                 } else {
                     response.onError(new FileNotFoundException("Error downloading file '" + request.getId() + "' to be cloned"));
                     return;
@@ -123,7 +128,7 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
                     .setPercentage(0)
                     .build());
 
-            var uploaded = sheetIO.uploadData(name, request.getSheetSize(), request.getCompression(), request.getUpload(), data, percentage ->
+            var uploaded = sheetIO.uploadData(name, fileSize, request.getSheetSize(), request.getCompression(), request.getUpload(), data, percentage ->
                     response.onNext(UploadResponse.newBuilder()
                             .setStatus(UploadStatus.UPLOADING)
                             .setPercentage(percentage)
@@ -139,6 +144,8 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
                     .setItem(ListItem.newBuilder()
                             .setName(uploaded.getName())
                             .setId(uploaded.getId())
+                            .setPath("") // TODO: Path & folders
+                            .setFolder(false)
                             .setSize(CommandHandler.getSize(uploaded))
                             .setSheets(CommandHandler.getSheetCount(uploaded))
                             .setDate(uploaded.getModifiedTime().getValue())

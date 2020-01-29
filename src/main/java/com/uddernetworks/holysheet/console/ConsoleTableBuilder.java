@@ -3,10 +3,13 @@ package com.uddernetworks.holysheet.console;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Stream;
 
 public class ConsoleTableBuilder {
 
@@ -26,6 +29,10 @@ public class ConsoleTableBuilder {
     }
 
     public String generateTable(List<List<String>> rows) {
+        return generateTable(rows, null);
+    }
+
+    public String generateTable(List<List<String>> rows, List<String> total) {
         var builder = new StringBuilder();
         var temp = new StringBuilder();
         columns.forEach((title, width) -> {
@@ -34,16 +41,26 @@ public class ConsoleTableBuilder {
         });
         builder.append("\n").append(temp).append("\n");
 
+        if (total != null && total.size() == rows.get(0).size()) {
+            rows = new ArrayList<>(rows);
+            rows.addAll(Arrays.asList(null, total));
+        }
+
         var columnWidths = columns.values().toArray(Integer[]::new);
 
         rows.forEach(row -> {
+            if (row == null) {
+                builder.append('\n');
+                return;
+            }
+
             if (row.size() != columns.size()) {
                 LOGGER.error("Columns do not match! ({} and {})", row.size(), columns.size());
                 return;
             }
 
             var i = new AtomicInteger();
-            row.stream().map(column ->
+            row.stream().map(str -> str == null ? "" : str).map(column ->
                     limit(column, columnWidths[i.getAndIncrement()]) + " ".repeat(horizontalSpacing))
                     .forEach(builder::append);
             builder.append("\n");

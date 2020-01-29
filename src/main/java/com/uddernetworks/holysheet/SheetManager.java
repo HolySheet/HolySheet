@@ -13,6 +13,7 @@ import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -80,6 +81,31 @@ public class SheetManager {
                 .setProperties(properties)
                 .setName(name))
                 .setFields("id, name, starred, webViewLink, sharingUser, owners, mimeType, parents, size, modifiedTime, properties").execute();
+    }
+
+    /**
+     * Adds or overwrites  properties to the given file.
+     *
+     * @param file The file
+     * @param properties The properties to add or overwrite
+     */
+    public void addProperties(File file, Map<String, String> properties) throws IOException {
+        var combined = new HashMap<>(file.getProperties());
+        combined.putAll(properties);
+        setProperties(file, combined);
+    }
+
+    /**
+     * Sets the file's properties to the given map. Any properties previously set that are not in the properties
+     * argument will be cleared.
+     *
+     * @param file The file
+     * @param properties The properties to set
+     */
+    public void setProperties(File file, Map<String, String> properties) throws IOException {
+        var meta = new File();
+        meta.setProperties(properties);
+        drive.files().update(file.getId(), meta).setFields("id, properties").execute();
     }
 
     /**

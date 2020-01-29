@@ -6,12 +6,14 @@ package com.uddernetworks.grpc;
 message ListItem {
     string name = 1;
     string id = 2;
-    int32 sheets = 3;
-    int64 size = 4;
-    int64 date = 5;
-    bool selfOwned = 6;
-    string owner = 7;
-    string driveLink = 8;
+    string path = 3;
+    bool folder = 4;
+    int32 sheets = 5;
+    int64 size = 6;
+    int64 date = 7;
+    bool selfOwned = 8;
+    string owner = 9;
+    string driveLink = 10;
 }
 
 // Used in code execution, to hold data of a variable
@@ -34,10 +36,11 @@ message ListResponse {
 message UploadRequest {
     string token = 1; // The Google authentication token
     string file = 2; // The file path, if uploading
-    string id = 3; // The file ID, if cloning
-    Upload upload = 4; // The upload type
-    Compression compression = 5; // The compression setting
-    int64 sheetSize = 6; // The maximum size (in bytes) each sheet can be
+    string name = 3; // The name of the file, to not rely on path name
+    string id = 4; // The file ID, if cloning
+    Upload upload = 5; // The upload type
+    Compression compression = 6; // The compression setting
+    int64 sheetSize = 7; // The maximum size (in bytes) each sheet can be
 
     enum Upload {
         MULTIPART = 0;
