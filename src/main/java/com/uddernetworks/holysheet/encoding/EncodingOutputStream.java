@@ -30,7 +30,7 @@ public class EncodingOutputStream extends FilterOutputStream {
     private final BiConsumer<Integer, byte[]> chunkConsumer;
     private int chunkIndex = 0;
 
-    private int length = 0;
+    private long length = 0;
     private int bufferLength = 0;
     private int index = 0;
 
@@ -101,8 +101,10 @@ public class EncodingOutputStream extends FilterOutputStream {
     public void flush() throws IOException {
         if (en > 0) {
             buffer.write(ENCODING_TABLE[ebq % BASE]);
+            length++;
             if (en > 7 || ebq > 90) {
                 buffer.write(ENCODING_TABLE[ebq / BASE]);
+                length++;
             }
         }
 
@@ -113,7 +115,7 @@ public class EncodingOutputStream extends FilterOutputStream {
         super.flush();
     }
 
-    public int getLength() {
+    public long getLength() {
         return length;
     }
 

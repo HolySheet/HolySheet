@@ -37,6 +37,8 @@ public class HolySheet {
         try {
             LOGGER.info("Initializing everything...");
 
+            grpcClient = new GRPCClient(this);
+
             authManager = new LocalAuthManager(credentialPath);
             authManager.initialize();
 

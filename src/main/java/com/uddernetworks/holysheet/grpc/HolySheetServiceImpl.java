@@ -92,9 +92,9 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
         useToken(request.getToken());
 
         var name = request.getName();
-        name = name.substring(0, Math.min(name.length() - 1, 32));
+        name = name.substring(0, Math.min(name.length(), 32));
         InputStream data;
-        long fileSize = 0;
+        long fileSize;
 
         try {
             if (!request.getFile().isBlank()) {

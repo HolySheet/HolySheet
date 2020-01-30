@@ -92,8 +92,6 @@ public class CommandHandler implements Runnable {
         sheetManager = new SheetManager(authManager.getDrive(), authManager.getSheets());
         sheetIO = sheetManager.getSheetIO();
 
-        System.out.println("grpc = " + grpc);
-
         if (grpc > 0) {
             holySheet.getjShellRemote().start();
             holySheet.getGrpcClient().start(grpc);

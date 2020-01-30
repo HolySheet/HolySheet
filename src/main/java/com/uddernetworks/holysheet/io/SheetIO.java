@@ -173,7 +173,7 @@ public class SheetIO {
 
         LOGGER.info("Created parent sheetStore/{} ({})", parent.getName(), parent.getId());
 
-        processRawFile(data, fileSize, (int) maxSheetSize, parent, uploadType, title, statusUpdate);
+        processRawFile(data, fileSize, (int) maxSheetSize, parent, uploadType, statusUpdate);
 
 //        var chunks = new ArrayList<FileChunk>();
 
@@ -194,7 +194,7 @@ public class SheetIO {
         return parent;
     }
 
-    private void processRawFile(InputStream input, long totalSize, int maxLength, File parent, Upload uploadType, String title, Consumer<Double> statusUpdate) throws IOException {
+    private void processRawFile(InputStream input, long totalSize, int maxLength, File parent, Upload uploadType, Consumer<Double> statusUpdate) throws IOException {
 
         // ~22% overhead
         int estimatedChunks = (int) Math.ceil((totalSize * 1.22) / (double) maxLength);
@@ -202,6 +202,9 @@ public class SheetIO {
         LOGGER.info("File size: {} estimated chunks: {}", humanReadableByteCountSI(totalSize), estimatedChunks);
 
         long start = System.currentTimeMillis();
+        boolean[] sentMax = {false};
+
+        statusUpdate.accept(0D);
 
         var encodingOut = EncodingOutputStream.encode(input, maxLength, (index, bytes) -> {
             LOGGER.info("Uploading {}/~{}", index + 1, estimatedChunks);
@@ -211,6 +214,11 @@ public class SheetIO {
             while (true) {
                 try {
                     processChunk(new FileChunk(parent, bytes, index), parent, uploadType);
+                    var percent = Math.max((index + 1) / ((double) estimatedChunks + 1), 1D);
+                    if (!sentMax[0]) {
+                        sentMax[0] = percent == 1D;
+                    }
+                    statusUpdate.accept(percent);
                     return;
                 } catch (Exception e) {
                     LOGGER.error("An exception occurred during the processing of file " + index, e);
@@ -228,8 +236,12 @@ public class SheetIO {
             }
         });
 
-        var sheets = encodingOut.getChunkIndex();
-        var size = encodingOut.getLength();
+        if (!sentMax[0]) {
+            statusUpdate.accept(1D);
+        }
+
+        int sheets = encodingOut.getChunkIndex();
+        long size = encodingOut.getLength();
 
         LOGGER.info("Completed. Readable data: {} sheet estimated: {} sheet exact: {}", humanReadableByteCountSI(size), estimatedChunks, sheets);
 
@@ -242,19 +254,6 @@ public class SheetIO {
                 "size", String.valueOf(size),
                 "sheets", String.valueOf(sheets)
         ));
-
-//        for (int i = 0; i > 0; input.readNBytes(buffer, off, maxLength)) {
-//            off += maxLength;
-//
-//            processChunk(new FileChunk(), parent, uploadType);
-//        }
-
-//        var encodingOut = new EncodingOutputStream(maxLength);
-//        IOUtils.copy(inputStream, encodingOut);
-//        encodingOut.flush();
-//        return encodingOut;
-
-//        processChunks(chunks, parent, uploadType, "Title", encoded.getLength(), statusUpdate);
     }
 
     private Map<FileChunk, File> processChunks(List<FileChunk> chunks, File parent, Upload uploadType, String title, long size, Consumer<Double> statusUpdate) {
