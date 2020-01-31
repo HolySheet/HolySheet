@@ -252,6 +252,11 @@ public class CommandHandler implements Runnable {
         return Integer.parseInt(string);
     }
 
+    public static boolean isStarred(com.google.api.services.drive.model.File file) {
+        var string = file.getProperties().get("starred");
+        return string != null && string.equals("true");
+    }
+
     public static int getSize(com.google.api.services.drive.model.File file) {
         var string = file.getProperties().get("size");
         if (!StringUtils.isNumeric(string)) {

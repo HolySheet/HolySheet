@@ -14,6 +14,7 @@ message ListItem {
     bool selfOwned = 8;
     string owner = 9;
     string driveLink = 10;
+    bool starred = 11;
 }
 
 // Used in code execution, to hold data of a variable
@@ -27,6 +28,7 @@ message SerializedVariable {
 message ListRequest {
     string token = 1; // The Google authentication token
     string path = 2; // The remote drive path to list
+    bool starred = 3; // Show starred files (true) or all files (false)
 }
 
 message ListResponse {
@@ -119,6 +121,15 @@ message CodeExecutionCallbackResponse {
 message ListenCallbacksRequest {
 }
 
+message StarRequest {
+    string token = 1; // The Google authentication token
+    string id = 2; // The Sheets-generated ID of the file to download
+    bool starred = 3; // If the file should be starred
+}
+
+message StarResponse {
+}
+
 service HolySheetService {
 
     // Lists files with an optional path
@@ -138,4 +149,7 @@ service HolySheetService {
 
     // Should only be invoked once. Streams back all callbacks
     rpc listenCallbacks(ListenCallbacksRequest) returns (stream CodeExecutionCallbackResponse);
+
+    // Star a given file
+    rpc starRequest(StarRequest) returns (StarResponse);
 }

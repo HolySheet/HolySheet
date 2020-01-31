@@ -41,6 +41,10 @@ public class SheetManager {
         return drive.files().get(id).execute();
     }
 
+    public File getFile(String id, String fields) throws IOException {
+        return drive.files().get(id).setFields(fields).execute();
+    }
+
     public Optional<String> getIdOfName(String name) {
         try {
             return getCollectionFirst(getFiles(-1, "parents in '" + getSheetStore().getId() + "' and name contains '" + name.replace("'", "") + "'", Mime.DOCUMENT)).map(File::getId);
@@ -50,8 +54,14 @@ public class SheetManager {
     }
 
     public List<File> listUploads() {
+        return listUploads(false);
+    }
+
+    public List<File> listUploads(boolean starred) {
         try {
-            return getAllSheets();
+            System.out.println("starred = " + starred);
+            var extra = starred ? "and properties has { key='starred' and value='true' }" : "";
+            return getFiles(-1, "properties has { key='directParent' and value='true' }" + extra, Mime.FOLDER);
         } catch (IOException e) {
             LOGGER.error("An error occurred while listing uploads", e);
             return Collections.emptyList();
@@ -96,6 +106,19 @@ public class SheetManager {
     }
 
     /**
+     * Adds or overwrites  properties to the given file.
+     *
+     * @param id The ID of the file
+     * @param properties The properties to add or overwrite
+     */
+    public void addProperties(String id, Map<String, String> properties) throws IOException {
+        var file = getFile(id, "id, properties");
+        var combined = new HashMap<>(file.getProperties());
+        combined.putAll(properties);
+        setProperties(file, combined);
+    }
+
+    /**
      * Sets the file's properties to the given map. Any properties previously set that are not in the properties
      * argument will be cleared.
      *
@@ -103,9 +126,20 @@ public class SheetManager {
      * @param properties The properties to set
      */
     public void setProperties(File file, Map<String, String> properties) throws IOException {
+        setProperties(file.getId(), properties);
+    }
+
+    /**
+     * Sets the file's properties to the given map. Any properties previously set that are not in the properties
+     * argument will be cleared.
+     *
+     * @param id The ID of the file
+     * @param properties The properties to set
+     */
+    public void setProperties(String id, Map<String, String> properties) throws IOException {
         var meta = new File();
         meta.setProperties(properties);
-        drive.files().update(file.getId(), meta).setFields("id, properties").execute();
+        drive.files().update(id, meta).setFields("id, properties").execute();
     }
 
     /**

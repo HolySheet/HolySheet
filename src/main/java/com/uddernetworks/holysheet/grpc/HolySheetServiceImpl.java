@@ -1,6 +1,7 @@
 package com.uddernetworks.holysheet.grpc;
 
 import com.uddernetworks.grpc.HolySheetServiceGrpc.HolySheetServiceImplBase;
+import com.uddernetworks.grpc.HolysheetService;
 import com.uddernetworks.grpc.HolysheetService.CodeExecutionCallbackResponse;
 import com.uddernetworks.grpc.HolysheetService.CodeExecutionRequest;
 import com.uddernetworks.grpc.HolysheetService.CodeExecutionResponse;
@@ -14,6 +15,8 @@ import com.uddernetworks.grpc.HolysheetService.ListenCallbacksRequest;
 import com.uddernetworks.grpc.HolysheetService.RemoveRequest;
 import com.uddernetworks.grpc.HolysheetService.RemoveResponse;
 import com.uddernetworks.grpc.HolysheetService.RemoveResponse.RemoveStatus;
+import com.uddernetworks.grpc.HolysheetService.StarRequest;
+import com.uddernetworks.grpc.HolysheetService.StarResponse;
 import com.uddernetworks.grpc.HolysheetService.UploadRequest;
 import com.uddernetworks.grpc.HolysheetService.UploadResponse;
 import com.uddernetworks.grpc.HolysheetService.UploadResponse.UploadStatus;
@@ -61,9 +64,10 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
     public void listFiles(ListRequest request, StreamObserver<ListResponse> response) {
         useToken(request.getToken());
 
-        var files = this.sheetManager.listUploads()
+        var files = this.sheetManager.listUploads(request.getStarred())
                 .stream()
                 .map(file -> {
+                    System.out.println("Starred: " + CommandHandler.isStarred(file));
                     var owner = file.getOwners().get(0);
                     return ListItem.newBuilder()
                             .setName(file.getName())
@@ -76,6 +80,7 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
                             .setSelfOwned(owner.getMe())
                             .setOwner(owner.getDisplayName())
                             .setDriveLink(file.getWebViewLink())
+                            .setStarred(CommandHandler.isStarred(file))
                             .build();
                 })
                 .collect(Collectors.toUnmodifiableList());
@@ -152,6 +157,7 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
                             .setSelfOwned(owner.getMe())
                             .setOwner(owner.getDisplayName())
                             .setDriveLink(uploaded.getWebViewLink())
+                            .setStarred(CommandHandler.isStarred(uploaded))
                             .build())
                     .build());
 
@@ -244,6 +250,20 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
     @Override
     public void listenCallbacks(ListenCallbacksRequest request, StreamObserver<CodeExecutionCallbackResponse> response) {
         this.response = response;
+    }
+
+    @Override
+    public void starRequest(StarRequest request, StreamObserver<StarResponse> response) {
+        useToken(request.getToken());
+
+        try {
+            sheetIO.setStarred(request.getId(), request.getStarred());
+            response.onNext(StarResponse.newBuilder().build());
+            response.onCompleted();
+        } catch (IOException e) {
+            LOGGER.error("An error has occurred while setting star status of a file", e);
+            response.onError(e);
+        }
     }
 
     public void acceptCallback(CodeExecutionCallbackResponse callbackResponse) {

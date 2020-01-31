@@ -163,6 +163,7 @@ public class SheetIO {
 
         var parent = sheetManager.createFolder(title, sheetManager.getSheetStore(), Map.of(
                 "directParent", "true",
+                "starred", "false",
                 "processing", "true",
                 "size", "0",
                 "sheets", "0",
@@ -308,6 +309,10 @@ public class SheetIO {
 //        finally {
 //            LOGGER.info("Done processing #{}", chunk.getIndex());
 //        }
+    }
+
+    public void setStarred(String id, boolean starred) throws IOException {
+        sheetManager.addProperties(id, Map.of("starred", starred ? "true" : "false"));
     }
 
     public void deleteData(String id) {
