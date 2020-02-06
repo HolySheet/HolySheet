@@ -14,7 +14,8 @@ import com.uddernetworks.grpc.HolysheetService.ListResponse;
 import com.uddernetworks.grpc.HolysheetService.ListenCallbacksRequest;
 import com.uddernetworks.grpc.HolysheetService.RemoveRequest;
 import com.uddernetworks.grpc.HolysheetService.RemoveResponse;
-import com.uddernetworks.grpc.HolysheetService.RemoveResponse.RemoveStatus;
+import com.uddernetworks.grpc.HolysheetService.RestoreRequest;
+import com.uddernetworks.grpc.HolysheetService.RestoreResponse;
 import com.uddernetworks.grpc.HolysheetService.StarRequest;
 import com.uddernetworks.grpc.HolysheetService.StarResponse;
 import com.uddernetworks.grpc.HolysheetService.UploadRequest;
@@ -64,7 +65,7 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
     public void listFiles(ListRequest request, StreamObserver<ListResponse> response) {
         useToken(request.getToken());
 
-        var files = this.sheetManager.listUploads(request.getStarred())
+        var files = this.sheetManager.listUploads(request.getStarred(), request.getTrashed())
                 .stream()
                 .map(file -> {
                     System.out.println("Starred: " + CommandHandler.isStarred(file));
@@ -81,6 +82,7 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
                             .setOwner(owner.getDisplayName())
                             .setDriveLink(file.getWebViewLink())
                             .setStarred(CommandHandler.isStarred(file))
+                            .setTrashed(file.getTrashed())
                             .build();
                 })
                 .collect(Collectors.toUnmodifiableList());
@@ -158,6 +160,7 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
                             .setOwner(owner.getDisplayName())
                             .setDriveLink(uploaded.getWebViewLink())
                             .setStarred(CommandHandler.isStarred(uploaded))
+                            .setTrashed(uploaded.getTrashed())
                             .build())
                     .build());
 
@@ -228,18 +231,28 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
     public void removeFile(RemoveRequest request, StreamObserver<RemoveResponse> response) {
         useToken(request.getToken());
 
-        response.onNext(RemoveResponse.newBuilder()
-                .setStatus(RemoveStatus.PENDING)
-                .setPercentage(0)
-                .build());
+        try {
+            sheetIO.deleteData(request.getId(), false, request.getPermanent());
 
-        sheetIO.deleteData(request.getId(), false, error -> response.onError(new RuntimeException(error)), () -> {
-            response.onNext(RemoveResponse.newBuilder()
-                    .setStatus(RemoveStatus.COMPLETE)
-                    .setPercentage(1)
-                    .build());
+            response.onNext(RemoveResponse.newBuilder().build());
             response.onCompleted();
-        });
+        } catch (Exception e) {
+            response.onError(e);
+            LOGGER.error("An error occurred while deleting file ID \"" + request.getId() + "\"", e);
+        }
+    }
+
+    @Override
+    public void restoreFile(RestoreRequest request, StreamObserver<RestoreResponse> response) {
+        try {
+            sheetIO.restoreData(request.getId());
+
+            response.onNext(RestoreResponse.newBuilder().build());
+            response.onCompleted();
+        } catch (Exception e) {
+            response.onError(e);
+            LOGGER.error("An error occurred while restoring file ID \"" + request.getId() + "\"", e);
+        }
     }
 
     @Override

@@ -15,6 +15,7 @@ message ListItem {
     string owner = 9;
     string driveLink = 10;
     bool starred = 11;
+    bool trashed = 12;
 }
 
 // Used in code execution, to hold data of a variable
@@ -29,6 +30,7 @@ message ListRequest {
     string token = 1; // The Google authentication token
     string path = 2; // The remote drive path to list
     bool starred = 3; // Show starred files (true) or all files (false)
+    bool trashed = 4; // If it should be listing trashed files
 }
 
 message ListResponse {
@@ -87,17 +89,18 @@ message DownloadResponse {
 message RemoveRequest {
     string token = 1; // The Google authentication token
     string id = 2; // The Sheets-generated ID of the file to remove
+    bool permanent = 3; // If the deletion should skip the trash
 }
 
 message RemoveResponse {
-    RemoveStatus status = 1; // The removal status
-    double percentage = 2; // The 0-1 percentage of the removal
+}
 
-    enum RemoveStatus {
-        PENDING = 0;
-        REMOVING = 1;
-        COMPLETE = 2;
-    }
+message RestoreRequest {
+    string token = 1; // The Google authentication token
+    string id = 2; // The Sheets-generated ID of the file to remove
+}
+
+message RestoreResponse {
 }
 
 message CodeExecutionRequest {
@@ -142,7 +145,10 @@ service HolySheetService {
     rpc downloadFile(DownloadRequest) returns (stream DownloadResponse);
 
     // Removes a remote file
-    rpc removeFile(RemoveRequest) returns (stream RemoveResponse);
+    rpc removeFile(RemoveRequest) returns (RemoveResponse);
+
+    // Restores a trashed file
+    rpc restoreFile(RestoreRequest) returns (RestoreResponse);
 
     // Executes Java code on the server
     rpc executeCode(CodeExecutionRequest) returns (CodeExecutionResponse);

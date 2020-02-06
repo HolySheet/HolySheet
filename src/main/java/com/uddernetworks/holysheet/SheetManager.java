@@ -54,14 +54,13 @@ public class SheetManager {
     }
 
     public List<File> listUploads() {
-        return listUploads(false);
+        return listUploads(false, false);
     }
 
-    public List<File> listUploads(boolean starred) {
+    public List<File> listUploads(boolean starred, boolean trashed) {
         try {
-            System.out.println("starred = " + starred);
-            var extra = starred ? "and properties has { key='starred' and value='true' }" : "";
-            return getFiles(-1, "properties has { key='directParent' and value='true' }" + extra, Mime.FOLDER);
+            var extra = starred ? " and properties has { key='starred' and value='true' }" : "";
+            return getFiles(-1, "properties has { key='directParent' and value='true' } and trashed = " + trashed + extra, Mime.FOLDER);
         } catch (IOException e) {
             LOGGER.error("An error occurred while listing uploads", e);
             return Collections.emptyList();
@@ -196,7 +195,7 @@ public class SheetManager {
     private FileList getPagesFiles(String pageToken, int pageSize, Mime[] mimes, String query) throws IOException {
         var builder = drive.files().list()
                 .setPageSize(pageSize)
-                .setFields("nextPageToken, files(id, name, starred, webViewLink, sharingUser, owners, mimeType, parents, size, modifiedTime, properties)");
+                .setFields("nextPageToken, files(id, name, starred, webViewLink, sharingUser, owners, mimeType, parents, size, modifiedTime, properties, trashed)");
 
         if (pageToken != null && !pageToken.isBlank()) {
             builder.setPageToken(pageToken);

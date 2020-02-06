@@ -222,7 +222,13 @@ public class CommandHandler implements Runnable {
     }
 
     private void remove() {
-        param.remove.forEach(sheetIO::deleteData);
+        param.remove.forEach(file -> {
+            try {
+                sheetIO.deleteData(file, false, false);
+            } catch (IOException e) {
+                LOGGER.error("An error has occurred while deleting the file " + file, e);
+            }
+        });
     }
 
     private void cloneFiles() {

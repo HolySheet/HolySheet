@@ -22,7 +22,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -315,65 +314,78 @@ public class SheetIO {
         sheetManager.addProperties(id, Map.of("starred", starred ? "true" : "false"));
     }
 
-    public void deleteData(String id) {
-        deleteData(id, true);
+    public void deleteData(String id, boolean permanent) throws IOException {
+        deleteData(id, true, permanent);
     }
 
-    public void deleteData(String id, boolean confirm) {
-        deleteData(id, confirm, s -> {}, () -> {});
-    }
+    public void deleteData(String id, boolean confirm, boolean permanent) throws IOException {
+        var file = drive.files().get(id).setFields("id, name, properties, trashed").execute();
 
-    public void deleteData(String id, boolean confirm, Consumer<String> onError, Runnable onSuccess) {
-        try {
-            Consumer<String> onLogError = (String string) -> {
-                LOGGER.error(string);
-                onError.accept(string);
-            };
-
-            var file = drive.files().get(id).setFields("id, name, properties").execute();
-
-            if (file == null) {
-                onLogError.accept("No file could be found with the given ID \"" + id + "\"");
-                return;
-            }
-
-            var properties = file.getProperties();
-            if (!"true".equals(properties.get("directParent"))) {
-                onLogError.accept("The given file was not detected as a direct parent of generated sheet data. For your safety, HolySheet will not delete anything not directly created by it, therefore this action has been cancelled.");
-                return;
-            }
-
-            if (confirm) {
-                LOGGER.info("Are you sure you want to delete \"{}\"? It consists of {} sheets totalling {}{}. This action skips the trash and is irreversible. (y/n)",
-                        file.getName(),
-                        properties.get("sheets"),
-                        humanReadableByteCountSI(Long.parseLong(properties.get("size"))),
-                        "true".equals(properties.get("compressed")) ? " compressed" : "");
-
-                var scanner = new Scanner(System.in);
-                if (!scanner.hasNextLine()) {
-                    LOGGER.info("Cancelling removal.");
-                    return;
-                }
-
-                var line = scanner.nextLine();
-                if (!"y".equalsIgnoreCase(line) && "yes".equalsIgnoreCase(line)) {
-                    LOGGER.info("Cancelling removal.");
-                    return;
-                }
-            }
-
-            LOGGER.info("Removing {}...", file.getName());
-
-            drive.files().delete(id).execute();
-
-            LOGGER.info("Removed successfully");
-
-            onSuccess.run();
-        } catch (IOException e) {
-            LOGGER.error("An error occurred while deleting the file " + id, e);
-            throw new UncheckedIOException("An error occurred while deleting the file " + id, e);
+        if (file == null) {
+            throw new RuntimeException("No file could be found with the given ID \"" + id + "\"");
         }
+
+        var properties = file.getProperties();
+        if (!"true".equals(properties.get("directParent"))) {
+            throw new RuntimeException("The given file was not detected as a direct parent of generated sheet data. For your safety, HolySheet will not delete anything not directly created by it, therefore this action has been cancelled.");
+        }
+
+        if (confirm) {
+            LOGGER.info("Are you sure you want to delete \"{}\"? It consists of {} sheets totalling {}{}. This action skips the trash and is irreversible. (y/n)",
+                    file.getName(),
+                    properties.get("sheets"),
+                    humanReadableByteCountSI(Long.parseLong(properties.get("size"))),
+                    "true".equals(properties.get("compressed")) ? " compressed" : "");
+
+            var scanner = new Scanner(System.in);
+            if (!scanner.hasNextLine()) {
+                LOGGER.info("Cancelling removal.");
+                return;
+            }
+
+            var line = scanner.nextLine();
+            if (!"y".equalsIgnoreCase(line) && "yes".equalsIgnoreCase(line)) {
+                LOGGER.info("Cancelling removal.");
+                return;
+            }
+        }
+
+        LOGGER.info("Removing {}...", file.getName());
+
+        if (permanent) {
+            drive.files().delete(id).execute();
+        } else {
+            if (file.getTrashed()) {
+                drive.files().delete(id).execute();
+            } else {
+                var temp = new File();
+                temp.setTrashed(true);
+                drive.files().update(id, temp).execute();
+            }
+        }
+
+        LOGGER.info("Removed successfully");
+    }
+
+    public void restoreData(String id) throws IOException {
+        var file = drive.files().get(id).setFields("id, name, trashed").execute();
+
+        if (file == null) {
+            throw new RuntimeException("No file could be found with the given ID \"" + id + "\"");
+        }
+
+        LOGGER.info("Removing {}...", file.getName());
+
+        if (!file.getTrashed()) {
+            LOGGER.info("Tried to restore a non-trashed file!");
+            return;
+        }
+
+        var temp = new File();
+        temp.setTrashed(false);
+        drive.files().update(id, temp).execute();
+
+        LOGGER.info("Restored successfully");
     }
 
     public void cloneFile(String fileId, int maxSheetSize, Compression compress) {
