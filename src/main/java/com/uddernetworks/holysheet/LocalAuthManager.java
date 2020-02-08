@@ -19,6 +19,7 @@ import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.DriveScopes;
 import com.google.api.services.sheets.v4.Sheets;
 import com.google.api.services.sheets.v4.SheetsScopes;
+import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,6 +27,8 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.Reader;
+import java.io.StringReader;
 import java.security.GeneralSecurityException;
 import java.util.List;
 
@@ -60,12 +63,22 @@ public class LocalAuthManager implements AuthManager {
     }
 
     private Credential getCredentials(NetHttpTransport HTTP_TRANSPORT) throws IOException {
-        var file = new File(credentialPath);
-        LOGGER.info("Full path: {}", file.getAbsolutePath());
-        if (!file.exists()) {
-            throw new FileNotFoundException("Couldn't find credentials file " + credentialPath);
+
+        Reader credentialReader;
+        if (!credentialPath.contains(".")) {
+            LOGGER.info("Using credentials from environment variable \"{}\"", credentialPath);
+            credentialReader = new StringReader(System.getenv(credentialPath));
+        } else {
+            var file = new File(credentialPath);
+            LOGGER.info("Using credentials from file \"{}\"", file.getAbsolutePath());
+            if (!file.exists()) {
+                throw new FileNotFoundException("Couldn't find credentials file " + credentialPath);
+            }
+
+            credentialReader = new FileReader(file);
         }
-        var clientSecrets = GoogleClientSecrets.load(JSON_FACTORY, new FileReader(file));
+
+        var clientSecrets = GoogleClientSecrets.load(JSON_FACTORY, credentialReader);
 
         var flow = new GoogleAuthorizationCodeFlow.Builder(
                 HTTP_TRANSPORT, JSON_FACTORY, clientSecrets, SCOPES)

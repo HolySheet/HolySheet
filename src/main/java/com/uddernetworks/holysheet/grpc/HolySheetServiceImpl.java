@@ -68,7 +68,6 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
         var files = this.sheetManager.listUploads(request.getStarred(), request.getTrashed())
                 .stream()
                 .map(file -> {
-                    System.out.println("Starred: " + CommandHandler.isStarred(file));
                     var owner = file.getOwners().get(0);
                     return ListItem.newBuilder()
                             .setName(file.getName())

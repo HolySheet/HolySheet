@@ -33,16 +33,23 @@ public class HolySheet {
         System.exit(new CommandLine(new CommandHandler(this)).execute(args));
     }
 
+    public void init() {
+        init(null);
+    }
+
     public void init(String credentialPath) {
         try {
             LOGGER.info("Initializing everything...");
 
             grpcClient = new GRPCClient(this);
 
-            authManager = new LocalAuthManager(credentialPath);
-            authManager.initialize();
+            if (credentialPath != null) {
+                authManager = new LocalAuthManager(credentialPath);
+                authManager.initialize();
 
-            jShellRemote = new JShellRemote(grpcClient);
+                // TODO: Will probably cause problems. Need to just remove this sometime.
+                jShellRemote = new JShellRemote(grpcClient);
+            }
         } catch (GeneralSecurityException | IOException e) {
             LOGGER.error("Error initializing", e);
         }
@@ -56,6 +63,7 @@ public class HolySheet {
         return grpcClient;
     }
 
+    @Deprecated
     public JShellRemote getjShellRemote() {
         return jShellRemote;
     }

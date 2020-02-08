@@ -33,6 +33,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+@Deprecated
 public class JShellRemote {
 
     private static final Gson GSON = new GsonBuilder()

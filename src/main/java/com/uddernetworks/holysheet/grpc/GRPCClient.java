@@ -3,6 +3,7 @@ package com.uddernetworks.holysheet.grpc;
 import com.uddernetworks.holysheet.HolySheet;
 import com.uddernetworks.holysheet.SheetManager;
 import io.grpc.ServerBuilder;
+import io.grpc.ServerProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,7 +20,6 @@ public class GRPCClient {
     }
 
     public static void main(String[] args) {
-//        System.out.println(System.getenv("CLIENT_SECRET"));
         var client = new GRPCClient(null);
         client.start(8888);
     }

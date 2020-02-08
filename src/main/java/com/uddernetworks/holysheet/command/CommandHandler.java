@@ -46,7 +46,7 @@ public class CommandHandler implements Runnable {
     @Option(names = {"-l", "--list"}, description = "Lists the uploaded files in Google Sheets")
     boolean list;
 
-    @Option(names = {"-a", "--credentials"}, description = "The (absolute or relative) location of your personal credentials.json file")
+    @Option(names = {"-a", "--credentials"}, description = "The (absolute or relative) location of your personal credentials.json file. If no file extension is found, it is assumed to be an environment variable")
     String credentials = "credentials.json";
 
     @Option(names = {"-g", "--grpc"}, description = "Starts the gRPC server on the given port, used to interface with other apps")
@@ -87,16 +87,18 @@ public class CommandHandler implements Runnable {
     public void run() {
         suicideForParent(parent);
 
+        if (grpc > 0) {
+            holySheet.init();
+            holySheet.getGrpcClient().start(grpc);
+            return;
+        }
+
+        holySheet.getjShellRemote().start();
+
         holySheet.init(credentials);
         var authManager = holySheet.getAuthManager();
         sheetManager = new SheetManager(authManager.getDrive(), authManager.getSheets());
         sheetIO = sheetManager.getSheetIO();
-
-        if (grpc > 0) {
-            holySheet.getjShellRemote().start();
-            holySheet.getGrpcClient().start(grpc);
-            return;
-        }
 
         if (list) {
             list();

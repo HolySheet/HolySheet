@@ -71,7 +71,7 @@ test {
 }
 
 run {
-    args = ['-g=8888']
+    args = ['-g=8889']
     standardInput = System.in
     jvmArgs("--add-opens", "jdk.jshell/jdk.jshell=ALL-UNNAMED")
     jvmArgs("--add-opens", "java.base/jdk.internal.misc=ALL-UNNAMED")
