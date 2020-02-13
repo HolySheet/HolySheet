@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hs-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hs-backend
+  template:
+    metadata:
+      labels:
+        app: hs-backend
+    spec:
+      nodeSelector:
+        "beta.kubernetes.io/os": linux
+      volumes:
+        - name: processing
+          emptyDir: {}
+      containers:
+        - name: api
+          image: rubbaboy/testback:v1.2
+          volumeMounts:
+            - name: processing
+              mountPath: /tmp/processing
+          ports:
+            - containerPort: 80
+          env:
+            - name: PORT
+              value: '80'
+            - name: GRPC
+              value: '8888'
+            - name: ALLOW_ORIGIN
+              value: 'http://localhost:8090'
+            - name: PROCESSING_PATH
+              value: '/tmp/processing'
+        - name: core
+          image: rubbaboy/hs:v1.2.3
+          volumeMounts:
+            - name: processing
+              mountPath: /tmp/processing
+          env:
+            - name: CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: google-credentials
+                  key: credentials.json
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hs-backend
+spec:
+  type: LoadBalancer
+  sessionAffinity: ClientIP
+  ports:
+    - port: 80
+  selector:
+    app: hs-backend

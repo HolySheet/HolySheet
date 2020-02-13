@@ -32,6 +32,8 @@ import java.io.StringReader;
 import java.security.GeneralSecurityException;
 import java.util.List;
 
+import static com.uddernetworks.holysheet.utility.Utility.credentialsReader;
+
 public class LocalAuthManager implements AuthManager {
     private static final Logger LOGGER = LoggerFactory.getLogger(LocalAuthManager.class);
 
@@ -63,22 +65,7 @@ public class LocalAuthManager implements AuthManager {
     }
 
     private Credential getCredentials(NetHttpTransport HTTP_TRANSPORT) throws IOException {
-
-        Reader credentialReader;
-        if (!credentialPath.contains(".")) {
-            LOGGER.info("Using credentials from environment variable \"{}\"", credentialPath);
-            credentialReader = new StringReader(System.getenv(credentialPath));
-        } else {
-            var file = new File(credentialPath);
-            LOGGER.info("Using credentials from file \"{}\"", file.getAbsolutePath());
-            if (!file.exists()) {
-                throw new FileNotFoundException("Couldn't find credentials file " + credentialPath);
-            }
-
-            credentialReader = new FileReader(file);
-        }
-
-        var clientSecrets = GoogleClientSecrets.load(JSON_FACTORY, credentialReader);
+        var clientSecrets = GoogleClientSecrets.load(JSON_FACTORY, credentialsReader(credentialPath));
 
         var flow = new GoogleAuthorizationCodeFlow.Builder(
                 HTTP_TRANSPORT, JSON_FACTORY, clientSecrets, SCOPES)

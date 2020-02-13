@@ -3,12 +3,21 @@ package com.uddernetworks.holysheet.utility;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.commons.lang3.math.NumberUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.Reader;
+import java.io.StringReader;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
 public class Utility {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(Utility.class);
 
     public static double round(double number, int places) {
         double scale = Math.pow(10, places);
@@ -56,7 +65,7 @@ public class Utility {
      * Gets a Collection Optional; a safe optional of the first element of a given collection.
      *
      * @param list A list
-     * @param <T> The type
+     * @param <T>  The type
      * @return Either an empty optional if the collection is empty, or an optional of the first element
      */
     public static <T> Optional<T> getCollectionFirst(List<T> list) {
@@ -85,6 +94,33 @@ public class Utility {
                 : (b /= 1000) < 999_950L ? String.format("%s%.1f TB", s, b / 1e3)
                 : (b /= 1000) < 999_950L ? String.format("%s%.1f PB", s, b / 1e3)
                 : String.format("%s%.1f EB", s, b / 1e6);
+    }
+
+    /**
+     * Returns a string reader of google-issues JSON credentials.
+     *
+     * @param creds A .json file path, environment variable, or JSON itself
+     * @return A reader of the credentials
+     * @throws FileNotFoundException If the file path is not found
+     */
+    public static Reader credentialsReader(String creds) throws FileNotFoundException {
+        if (creds.contains("{")) {
+            LOGGER.info("Using credentials from direct JSON");
+            return new StringReader(creds);
+        }
+
+        if (!creds.contains(".json")) {
+            LOGGER.info("Using credentials from environment variable \"{}\"", creds);
+            return new StringReader(System.getenv(creds));
+        }
+
+        var file = new File(creds);
+        LOGGER.info("Using credentials from file \"{}\"", file.getAbsolutePath());
+        if (!file.exists()) {
+            throw new FileNotFoundException("Couldn't find credentials file " + creds);
+        }
+
+        return new FileReader(file);
     }
 
     public static void sleep(long millis) {
