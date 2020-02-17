@@ -67,23 +67,7 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
 
         var files = this.sheetManager.listUploads(request.getStarred(), request.getTrashed())
                 .stream()
-                .map(file -> {
-                    var owner = file.getOwners().get(0);
-                    return ListItem.newBuilder()
-                            .setName(file.getName())
-                            .setId(file.getId())
-                            .setPath("") // TODO: Path & folders
-                            .setFolder(false)
-                            .setSize(CommandHandler.getSize(file))
-                            .setSheets(CommandHandler.getSheetCount(file))
-                            .setDate(file.getModifiedTime().getValue())
-                            .setSelfOwned(owner.getMe())
-                            .setOwner(owner.getDisplayName())
-                            .setDriveLink(file.getWebViewLink())
-                            .setStarred(CommandHandler.isStarred(file))
-                            .setTrashed(file.getTrashed())
-                            .build();
-                })
+                .map(this::getListItem)
                 .collect(Collectors.toUnmodifiableList());
 
         response.onNext(ListResponse.newBuilder()
@@ -142,25 +126,10 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
 
             LOGGER.info("Uploaded {} in {}ms", uploaded.getId(), System.currentTimeMillis() - start);
 
-            var owner = uploaded.getOwners().get(0);
-
             response.onNext(UploadResponse.newBuilder()
                     .setStatus(UploadStatus.COMPLETE)
                     .setPercentage(1)
-                    .setItem(ListItem.newBuilder()
-                            .setName(uploaded.getName())
-                            .setId(uploaded.getId())
-                            .setPath("") // TODO: Path & folders
-                            .setFolder(false)
-                            .setSize(CommandHandler.getSize(uploaded))
-                            .setSheets(CommandHandler.getSheetCount(uploaded))
-                            .setDate(uploaded.getModifiedTime().getValue())
-                            .setSelfOwned(owner.getMe())
-                            .setOwner(owner.getDisplayName())
-                            .setDriveLink(uploaded.getWebViewLink())
-                            .setStarred(CommandHandler.isStarred(uploaded))
-                            .setTrashed(uploaded.getTrashed())
-                            .build())
+                    .setItem(getListItem(uploaded))
                     .build());
 
             response.onCompleted();
@@ -198,28 +167,27 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
                     .setPercentage(0)
                     .build());
 
-            try (var fileStream = new FileOutputStream(destination)) {
-                sheetManager.getSheetIO().downloadData(id, percentage ->
-                        response.onNext(DownloadResponse.newBuilder()
-                                .setStatus(DownloadStatus.DOWNLOADING)
-                                .setPercentage(percentage)
-                                .build()), error -> response.onError(new RuntimeException(error)), bytes -> {
-                    try {
-                        fileStream.write(bytes.toByteArray());
-
+            sheetManager.getSheetIO().downloadData(destination, id, percentage ->
+                    response.onNext(DownloadResponse.newBuilder()
+                            .setStatus(DownloadStatus.DOWNLOADING)
+                            .setPercentage(percentage)
+                            .build()))
+                    .thenAccept(file -> {
                         LOGGER.info("Downloaded in {}ms", System.currentTimeMillis() - start);
 
                         response.onNext(DownloadResponse.newBuilder()
                                 .setStatus(DownloadStatus.COMPLETE)
                                 .setPercentage(1)
+                                .setItem(getListItem(file))
                                 .build());
-                    } catch (IOException e) {
-                        throw new UncheckedIOException(e);
-                    }
-                });
-            }
 
-            response.onCompleted();
+                        response.onCompleted();
+                    }).exceptionally(t -> {
+                LOGGER.error("An error has occurred!", t);
+                response.onError(new RuntimeException(t));
+                return null;
+            });
+
         } catch (IOException e) {
             LOGGER.error("An error has occurred while uploading a file", e);
             response.onError(e);
@@ -282,5 +250,23 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
         if (response != null) {
             response.onNext(callbackResponse);
         }
+    }
+
+    ListItem getListItem(com.google.api.services.drive.model.File file) {
+        var owner = file.getOwners().get(0);
+        return ListItem.newBuilder()
+                .setName(file.getName())
+                .setId(file.getId())
+                .setPath("") // TODO: Path & folders
+                .setFolder(false)
+                .setSize(CommandHandler.getSize(file))
+                .setSheets(CommandHandler.getSheetCount(file))
+                .setDate(file.getModifiedTime().getValue())
+                .setSelfOwned(owner.getMe())
+                .setOwner(owner.getDisplayName())
+                .setDriveLink(file.getWebViewLink())
+                .setStarred(CommandHandler.isStarred(file))
+                .setTrashed(file.getTrashed())
+                .build();
     }
 }

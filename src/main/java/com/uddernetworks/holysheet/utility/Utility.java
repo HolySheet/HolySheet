@@ -19,6 +19,8 @@ public class Utility {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Utility.class);
 
+    public static final String DRIVE_FIELDS = "id, name, starred, webViewLink, sharingUser, owners, mimeType, parents, size, modifiedTime, properties, trashed";
+
     public static double round(double number, int places) {
         double scale = Math.pow(10, places);
         return Math.round(number * scale) / scale;

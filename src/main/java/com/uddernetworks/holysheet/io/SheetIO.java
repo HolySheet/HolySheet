@@ -28,11 +28,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Scanner;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static com.uddernetworks.holysheet.utility.Utility.DRIVE_FIELDS;
 import static com.uddernetworks.holysheet.utility.Utility.humanReadableByteCountSI;
 
 public class SheetIO {
@@ -54,65 +58,61 @@ public class SheetIO {
         this.sheets = sheets;
     }
 
-    public void downloadData(String id, Consumer<Double> statusUpdate, Consumer<String> onError, Consumer<ByteArrayOutputStream> onSuccess) throws IOException {
-        downloadData(id, statusUpdate, onError).ifPresent(onSuccess);
+    public CompletableFuture<File> downloadData(java.io.File file, String id) {
+        return downloadData(file, id, $ -> {});
     }
 
-    public Optional<ByteArrayOutputStream> downloadData(String id) throws IOException {
-        return downloadData(id, $ -> {}, $ -> {});
-    }
+    public CompletableFuture<File> downloadData(java.io.File destination, String id, Consumer<Double> statusUpdate) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                var parent = drive.files().get(id).setFields(DRIVE_FIELDS).execute();
+                if (parent == null) {
+                    throw new RuntimeException("Couldn't find id " + id);
+                }
 
-    public Optional<ByteArrayOutputStream> downloadData(String id, Consumer<Double> statusUpdate, Consumer<String> onError) throws IOException {
-        Consumer<String> onLogError = (String string) -> {
-            LOGGER.error(string);
-            onError.accept(string);
-        };
+                var props = parent.getProperties();
+                if (!props.get("directParent").equals("true")) {
+                    throw new RuntimeException("Not a direct parent!");
+                }
 
-        var parent = drive.files().get(id).setFields("id, properties").execute();
-        if (parent == null) {
-            onLogError.accept("Couldn't find id " + id);
-            return Optional.empty();
-        }
+                // Defaults to NONE(0), will never be null
+                var compression = parseLegacyCompression(props.get("compressed"));
 
-        var props = parent.getProperties();
-        if (!props.get("directParent").equals("true")) {
-            onLogError.accept("Not a direct parent!");
-            return Optional.empty();
-        }
+                LOGGER.info("File compression: {}", compression.name());
 
-        // Defaults to NONE(0), will never be null
-        var compression = parseLegacyCompression(props.get("compressed"));
+                var files = sheetManager.getAllSheets(parent.getId());
 
-        LOGGER.info("File compression: {}", compression.name());
+                LOGGER.info("Found {} children", files.size());
 
-        var files = sheetManager.getAllSheets(parent.getId());
+                var encodingOut = new DecodingOutputStream<>(new FileOutputStream(destination));
+                var downloadedIndex = new double[]{0};
 
-        LOGGER.info("Found {} children", files.size());
+                files.stream().sorted(Comparator.comparingInt(file -> {
+                    var fp = file.getProperties();
+                    if (fp == null) return -1;
+                    return Integer.parseInt(fp.get("index"));
+                })).forEach(file -> {
+                    downloadSheet(file, encodingOut);
+                    statusUpdate.accept(downloadedIndex[0]++ / (double) files.size());
+                });
 
-        var encodingOut = new DecodingOutputStream<ByteArrayOutputStream>();
-        var downloadedIndex = new double[]{0};
+                encodingOut.close();
 
-        files.stream().sorted(Comparator.comparingInt(file -> {
-            var fp = file.getProperties();
-            if (fp == null) return -1;
-            return Integer.parseInt(fp.get("index"));
-        })).forEach(file -> {
-            downloadSheet(file, encodingOut);
-            statusUpdate.accept(downloadedIndex[0]++ / (double) files.size());
+                LOGGER.info("Downloaded {} sheets", files.size());
+
+                if (compression == Compression.ZIP) {
+                    LOGGER.error("Ignoring compression! This is only due to being in a development environment");
+//                    LOGGER.info("Uncompressing data...");
+//                    finalStream = CompressionUtils.uncompressToOutputStream(encodingOut.getOut().toByteArray());
+                }
+
+                LOGGER.info("Downloaded and unencoded {}", humanReadableByteCountSI(destination.length()));
+
+                return parent;
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
         });
-        encodingOut.flush();
-        LOGGER.info("Downloaded {} sheets", files.size());
-
-        var finalStream = encodingOut.getOut();
-
-        if (compression == Compression.ZIP) {
-            LOGGER.info("Uncompressing data...");
-            finalStream = CompressionUtils.uncompressToOutputStream(encodingOut.getOut().toByteArray());
-        }
-
-        LOGGER.info("Downloaded and unencoded {}", humanReadableByteCountSI(finalStream.size()));
-
-        return Optional.of(finalStream);
     }
 
     private Compression parseLegacyCompression(String compression) {

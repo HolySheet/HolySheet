@@ -19,9 +19,14 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -188,12 +193,13 @@ public class CommandHandler implements Runnable {
     }
 
     private void download() {
-        for (var idName : param.download) {
-            downloadIdName(idName);
-        }
+        ForkJoinPool.commonPool().invokeAll(Arrays
+                .stream(param.download)
+                .map(this::downloadIdName)
+                .map(f -> (Callable<Void>) f::join).collect(Collectors.toList()));
     }
 
-    private void downloadIdName(String idName) {
+    private CompletableFuture<Void> downloadIdName(String idName) {
         try {
             if (ID_PATTERN.matcher(idName).matches()) {
                 idName = sheetManager.getIdOfName(idName).orElse(idName);
@@ -204,22 +210,16 @@ public class CommandHandler implements Runnable {
 
             if (sheet == null) {
                 LOGGER.info("Couldn't find file with id/name of {}", idName);
-                return;
+                return CompletableFuture.completedFuture(null);
             }
 
-            try (var fileStream = new FileOutputStream(sheet.getName())) {
-                var byteOptional = sheetManager.getSheetIO().downloadData(idName);
-                if (byteOptional.isEmpty()) {
-                    LOGGER.error("An error occurred while downloading {}", idName);
-                    return;
-                }
-
-                fileStream.write(byteOptional.get().toByteArray());
-            }
-
-            LOGGER.info("Downloaded in {}ms", System.currentTimeMillis() - start);
+            return sheetManager.getSheetIO().downloadData(new File(sheet.getName()), idName).exceptionally(t -> {
+                LOGGER.error("An error occurred while downloading file", t);
+                return null;
+            }).thenAccept($ -> LOGGER.info("Downloaded in {}ms", System.currentTimeMillis() - start));
         } catch (IOException e) {
             LOGGER.error("An error occurred while downloading file " + idName, e);
+            return CompletableFuture.completedFuture(null);
         }
     }
 
@@ -265,12 +265,12 @@ public class CommandHandler implements Runnable {
         return string != null && string.equals("true");
     }
 
-    public static int getSize(com.google.api.services.drive.model.File file) {
+    public static long getSize(com.google.api.services.drive.model.File file) {
         var string = file.getProperties().get("size");
         if (!StringUtils.isNumeric(string)) {
             return 0;
         }
 
-        return Integer.parseInt(string);
+        return Long.parseLong(string);
     }
 }

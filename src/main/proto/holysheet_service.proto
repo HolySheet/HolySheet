@@ -78,6 +78,7 @@ message DownloadRequest {
 message DownloadResponse {
     DownloadStatus status = 1; // The download status
     double percentage = 2; // The 0-1 percentage of the download
+    ListItem item = 3; // The file uploaded. Only not-null when status is COMPLETE
 
     enum DownloadStatus {
         PENDING = 0;

@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.uddernetworks.holysheet.utility.Utility.DRIVE_FIELDS;
 import static com.uddernetworks.holysheet.utility.Utility.getCollectionFirst;
 
 public class SheetManager {
@@ -89,7 +90,7 @@ public class SheetManager {
                 .setParents(parent == null ? null : Collections.singletonList(parent.getId()))
                 .setProperties(properties)
                 .setName(name))
-                .setFields("id, name, starred, webViewLink, sharingUser, owners, mimeType, parents, size, modifiedTime, properties, trashed").execute();
+                .setFields(DRIVE_FIELDS).execute();
     }
 
     /**
@@ -195,7 +196,7 @@ public class SheetManager {
     private FileList getPagesFiles(String pageToken, int pageSize, Mime[] mimes, String query) throws IOException {
         var builder = drive.files().list()
                 .setPageSize(pageSize)
-                .setFields("nextPageToken, files(id, name, starred, webViewLink, sharingUser, owners, mimeType, parents, size, modifiedTime, properties, trashed)");
+                .setFields("nextPageToken, files(" + DRIVE_FIELDS + ")");
 
         if (pageToken != null && !pageToken.isBlank()) {
             builder.setPageToken(pageToken);

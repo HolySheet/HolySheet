@@ -79,4 +79,10 @@ public class DecodingOutputStream<T extends OutputStream> extends ByteArrayFilte
 
         super.flush();
     }
+
+    @Override
+    public void close() throws IOException {
+        super.close();
+        out.close();
+    }
 }
