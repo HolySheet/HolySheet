@@ -36,6 +36,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static com.uddernetworks.holysheet.SheetManager.PATH_REGEX;
 import static com.uddernetworks.holysheet.utility.Utility.DRIVE_FIELDS;
 import static com.uddernetworks.holysheet.utility.Utility.humanReadableByteCountSI;
 
@@ -137,11 +138,16 @@ public class SheetIO {
         }
     }
 
-    public File uploadData(String title, long fileSize, long maxSheetSize, Compression compress, Upload uploadType, InputStream data) throws IOException {
-        return uploadData(title, fileSize, maxSheetSize, compress, uploadType, data, null);
+    public File uploadData(String title, String path, long fileSize, long maxSheetSize, Compression compress, Upload uploadType, InputStream data) throws IOException {
+        return uploadData(title, path, fileSize, maxSheetSize, compress, uploadType, data, null);
     }
 
-    public File uploadData(String title, long fileSize, long maxSheetSize, Compression compress, Upload uploadType, InputStream data, Consumer<Double> statusUpdate) throws IOException {
+    public File uploadData(String title, String path, long fileSize, long maxSheetSize, Compression compress, Upload uploadType, InputStream data, Consumer<Double> statusUpdate) throws IOException {
+        path = cleanPath(path);
+        if (statusUpdate == null) {
+            statusUpdate = $ -> {};
+        }
+
         if (compress == Compression.ZIP) {
             LOGGER.error("Ignoring compression! This is only due to being in a development environment");
 //            var dataOptional = CompressionUtils.compress(data);
@@ -166,6 +172,7 @@ public class SheetIO {
                 "processing", "true",
                 "size", "0",
                 "sheets", "0",
+                "path", path,
 //                "size", String.valueOf(encoded.getLength()), // Can be set later
 //                "sheets", String.valueOf(byteArrayList.size()), // Can be set later
                 "compressed", String.valueOf(compress.getNumber())
@@ -314,6 +321,27 @@ public class SheetIO {
         sheetManager.addProperties(id, Map.of("starred", starred ? "true" : "false"));
     }
 
+    public void setPath(String id, String path) throws IOException {
+        path = cleanPath(path);
+        sheetManager.addProperties(id, Map.of("path", path));
+    }
+
+    public String cleanPath(String path) {
+        if (path.isBlank() || !PATH_REGEX.matcher(path).matches()) {
+            path = "/";
+        }
+
+        if (!path.startsWith("/")) {
+            path = "/" + path;
+        }
+
+        if (!path.endsWith("/")) {
+            path += "/";
+        }
+
+        return path;
+    }
+
     public void deleteData(String id, boolean permanent) throws IOException {
         deleteData(id, true, permanent);
     }
@@ -398,7 +426,7 @@ public class SheetIO {
             LOGGER.info("Saving {}...", name);
 
             try {
-                uploadData(name, fileData.getSize(), maxSheetSize, compress, Upload.MULTIPART, in);
+                uploadData(name, "/", fileData.getSize(), maxSheetSize, compress, Upload.MULTIPART, in);
             } catch (IOException e) {
                 LOGGER.error("An error occurred while uploading the " + fileId, e);
             }

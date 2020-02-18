@@ -134,6 +134,15 @@ message StarRequest {
 message StarResponse {
 }
 
+message MoveFileRequest {
+    string token = 1; // The Google authentication token
+    string id = 2; // The Sheets-generated ID of the file to download
+    string path = 3; // The path to move the file to. This path will be the PARENT of the file
+}
+
+message MoveFileResponse {
+}
+
 service HolySheetService {
 
     // Lists files with an optional path
@@ -159,4 +168,7 @@ service HolySheetService {
 
     // Star a given file
     rpc starRequest(StarRequest) returns (StarResponse);
+
+    // Moves a file from one path to another
+    rpc moveFile(MoveFileRequest) returns (MoveFileResponse);
 }

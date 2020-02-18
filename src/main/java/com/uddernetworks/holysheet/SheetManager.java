@@ -17,6 +17,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.uddernetworks.holysheet.utility.Utility.DRIVE_FIELDS;
@@ -25,6 +26,8 @@ import static com.uddernetworks.holysheet.utility.Utility.getCollectionFirst;
 public class SheetManager {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SheetManager.class);
+
+    public static final Pattern PATH_REGEX = Pattern.compile("^\\/([\\w-]+?(\\/[\\w-]+?){0,1})*\\/$");
 
     private final Drive drive;
     private final Sheets sheets;
@@ -55,13 +58,17 @@ public class SheetManager {
     }
 
     public List<File> listUploads() {
-        return listUploads(false, false);
+        return listUploads("/", false, false);
     }
 
-    public List<File> listUploads(boolean starred, boolean trashed) {
+    public List<File> listUploads(String path, boolean starred, boolean trashed) {
         try {
+            if (path.isBlank() || !PATH_REGEX.matcher(path).matches()) {
+                path = "/";
+            }
+
             var extra = starred ? " and properties has { key='starred' and value='true' }" : "";
-            return getFiles(-1, "properties has { key='directParent' and value='true' } and trashed = " + trashed + extra, Mime.FOLDER);
+            return getFiles(-1, "properties has { key='directParent' and value='true' } and properties has { key='path' and value='" + path + "' } and trashed = " + trashed + extra, Mime.FOLDER);
         } catch (IOException e) {
             LOGGER.error("An error occurred while listing uploads", e);
             return Collections.emptyList();

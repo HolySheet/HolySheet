@@ -260,6 +260,15 @@ public class CommandHandler implements Runnable {
         return Integer.parseInt(string);
     }
 
+    public static String getPath(com.google.api.services.drive.model.File file) {
+        var path = file.getProperties().get("path");
+        if (path == null) {
+            return "";
+        }
+
+        return path;
+    }
+
     public static boolean isStarred(com.google.api.services.drive.model.File file) {
         var string = file.getProperties().get("starred");
         return string != null && string.equals("true");

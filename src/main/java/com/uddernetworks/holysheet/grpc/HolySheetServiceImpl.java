@@ -12,6 +12,8 @@ import com.uddernetworks.grpc.HolysheetService.ListItem;
 import com.uddernetworks.grpc.HolysheetService.ListRequest;
 import com.uddernetworks.grpc.HolysheetService.ListResponse;
 import com.uddernetworks.grpc.HolysheetService.ListenCallbacksRequest;
+import com.uddernetworks.grpc.HolysheetService.MoveFileRequest;
+import com.uddernetworks.grpc.HolysheetService.MoveFileResponse;
 import com.uddernetworks.grpc.HolysheetService.RemoveRequest;
 import com.uddernetworks.grpc.HolysheetService.RemoveResponse;
 import com.uddernetworks.grpc.HolysheetService.RestoreRequest;
@@ -65,7 +67,7 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
     public void listFiles(ListRequest request, StreamObserver<ListResponse> response) {
         useToken(request.getToken());
 
-        var files = this.sheetManager.listUploads(request.getStarred(), request.getTrashed())
+        var files = this.sheetManager.listUploads(request.getPath(), request.getStarred(), request.getTrashed())
                 .stream()
                 .map(this::getListItem)
                 .collect(Collectors.toUnmodifiableList());
@@ -246,6 +248,20 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
         }
     }
 
+    @Override
+    public void moveFile(MoveFileRequest request, StreamObserver<MoveFileResponse> response) {
+        useToken(request.getToken());
+
+        try {
+            sheetIO.setPath(request.getId(), request.getPath());
+            response.onNext(MoveFileResponse.newBuilder().build());
+            response.onCompleted();
+        } catch (IOException e) {
+            LOGGER.error("An error has occurred while setting the path of a file to \"" + request.getPath() + "\"", e);
+            response.onError(e);
+        }
+    }
+
     public void acceptCallback(CodeExecutionCallbackResponse callbackResponse) {
         if (response != null) {
             response.onNext(callbackResponse);
@@ -257,7 +273,7 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
         return ListItem.newBuilder()
                 .setName(file.getName())
                 .setId(file.getId())
-                .setPath("") // TODO: Path & folders
+                .setPath(CommandHandler.getPath(file))
                 .setFolder(false)
                 .setSize(CommandHandler.getSize(file))
                 .setSheets(CommandHandler.getSheetCount(file))
