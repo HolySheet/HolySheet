@@ -10,7 +10,6 @@ import com.uddernetworks.holysheet.Mime;
 import com.uddernetworks.holysheet.SheetManager;
 import com.uddernetworks.holysheet.encoding.DecodingOutputStream;
 import com.uddernetworks.holysheet.encoding.EncodingOutputStream;
-import com.uddernetworks.holysheet.utility.CompressionUtils;
 import com.uddernetworks.holysheet.utility.Utility;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,17 +23,13 @@ import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Scanner;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import static com.uddernetworks.holysheet.SheetManager.PATH_REGEX;
 import static com.uddernetworks.holysheet.utility.Utility.DRIVE_FIELDS;
@@ -138,33 +133,8 @@ public class SheetIO {
         }
     }
 
-    public File uploadData(String title, String path, long fileSize, long maxSheetSize, Compression compress, Upload uploadType, InputStream data) throws IOException {
-        return uploadData(title, path, fileSize, maxSheetSize, compress, uploadType, data, null);
-    }
-
-    public File uploadData(String title, String path, long fileSize, long maxSheetSize, Compression compress, Upload uploadType, InputStream data, Consumer<Double> statusUpdate) throws IOException {
+    public CompletableFuture<File> uploadDataStream(String title, String path, long fileSize, long maxSheetSize, Compression compress, Upload uploadType, EncodingOutputStream outputStream) throws IOException {
         path = cleanPath(path);
-        if (statusUpdate == null) {
-            statusUpdate = $ -> {};
-        }
-
-        if (compress == Compression.ZIP) {
-            LOGGER.error("Ignoring compression! This is only due to being in a development environment");
-//            var dataOptional = CompressionUtils.compress(data);
-//
-//            if (dataOptional.isEmpty()) {
-//                LOGGER.error("An error occurred while compressing file! Try using a smaller file. Continuing without compression.");
-//            } else {
-//                data = dataOptional.get();
-//            }
-        }
-
-//        var encoded = EncodingOutputStream.encode(data, maxSheetSize);
-//        var byteArrayList = encoded.getChunks();
-
-//        LOGGER.info("Encoded from {} - {} ({}% overhead)", humanReadableByteCountSI(data.length), humanReadableByteCountSI(encoded.getLength()), round((encoded.getLength() - data.length) / (double) data.length * 100D, 2));
-
-//        LOGGER.info("This upload will use {} sheets", byteArrayList.size());
 
         var parent = sheetManager.createFolder(title, sheetManager.getSheetStore(), Map.of(
                 "directParent", "true",
@@ -173,30 +143,99 @@ public class SheetIO {
                 "size", "0",
                 "sheets", "0",
                 "path", path,
-//                "size", String.valueOf(encoded.getLength()), // Can be set later
-//                "sheets", String.valueOf(byteArrayList.size()), // Can be set later
+                "compressed", String.valueOf(compress.getNumber())
+        ));
+
+        LOGGER.info("Created parent sheetStore/{} ({})", parent.getName(), parent.getId());
+
+        return processRawStream(outputStream, fileSize, (int) maxSheetSize, parent, uploadType).thenApply($ -> parent);
+    }
+
+    private CompletableFuture<Void> processRawStream(EncodingOutputStream encodingOut, long totalSize, int maxLength, File parent, Upload uploadType) {
+
+        // ~22% overhead
+        int estimatedChunks = (int) Math.ceil((totalSize * 1.22) / (double) maxLength);
+
+        LOGGER.info("File size: {} estimated chunks: {}", humanReadableByteCountSI(totalSize), estimatedChunks);
+
+        long start = System.currentTimeMillis();
+
+        encodingOut.setChunkConsumer((index, bytes) -> {
+            LOGGER.info("Uploading {}/~{}", index + 1, estimatedChunks);
+
+            int iterations = 0;
+            int delay = 1000;
+            while (true) {
+                try {
+                    processChunk(new FileChunk(parent, bytes, index), parent, uploadType);
+                    return;
+                } catch (Exception e) {
+                    LOGGER.error("An exception occurred during the processing of file " + index, e);
+
+                    delay = Math.max(30000, delay * 2); // Increase the delay 5x from previous, max of 30 seconds
+
+                    if (iterations++ >= 5) { // Separate from timing, as that cna change
+                        LOGGER.info("It has been 5 failed iterations, terminating upload. The file will remain with the 'processing' property set to true, it may be manually deleted later. IN the future, a more robust system may be implemented of trying file uploads later.");
+                        System.exit(0);
+                    }
+
+                    LOGGER.info("Waiting {}ms", delay);
+                    Utility.sleep(delay);
+                }
+            }
+        });
+
+        var completer = new CompletableFuture<Void>();
+
+        encodingOut.setOnClose(() -> {
+            int sheets = encodingOut.getChunkIndex();
+            long size = encodingOut.getLength();
+
+            LOGGER.info("Completed. Readable data: {} sheet estimated: {} sheet exact: {}", humanReadableByteCountSI(size), estimatedChunks, sheets);
+
+            double durationSeconds = (System.currentTimeMillis() - start) / 1000D;
+            long bps = (long) ((double) size / durationSeconds);
+            LOGGER.info("Finished upload in {} ms at a rate of {}/s", System.currentTimeMillis() - start, humanReadableByteCountSI(bps));
+
+            try {
+                sheetManager.addProperties(parent, Map.of(
+                        "processing", "false",
+                        "size", String.valueOf(size),
+                        "sheets", String.valueOf(sheets)
+                ));
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+
+            completer.complete(null);
+        });
+
+        return completer;
+    }
+
+    public File uploadDataFile(String title, String path, long fileSize, long maxSheetSize, Compression compress, Upload uploadType, InputStream data) throws IOException {
+        return uploadDataFile(title, path, fileSize, maxSheetSize, compress, uploadType, data, null);
+    }
+
+    public File uploadDataFile(String title, String path, long fileSize, long maxSheetSize, Compression compress, Upload uploadType, InputStream data, Consumer<Double> statusUpdate) throws IOException {
+        path = cleanPath(path);
+        if (statusUpdate == null) {
+            statusUpdate = $ -> {};
+        }
+
+        var parent = sheetManager.createFolder(title, sheetManager.getSheetStore(), Map.of(
+                "directParent", "true",
+                "starred", "false",
+                "processing", "true",
+                "size", "0",
+                "sheets", "0",
+                "path", path,
                 "compressed", String.valueOf(compress.getNumber())
         ));
 
         LOGGER.info("Created parent sheetStore/{} ({})", parent.getName(), parent.getId());
 
         processRawFile(data, fileSize, (int) maxSheetSize, parent, uploadType, statusUpdate);
-
-//        var chunks = new ArrayList<FileChunk>();
-
-//        for (int i = 0; i < byteArrayList.size(); i++) {
-//            chunks.add(new FileChunk(parent, byteArrayList.get(i), i));
-//        }
-
-//        LOGGER.info("Processing {} chunks", chunks.size());
-
-//        long start = System.currentTimeMillis();
-
-//        processChunks(chunks, parent, uploadType, title, encoded.getLength(), statusUpdate);
-
-//        double durationSeconds = (System.currentTimeMillis() - start) / 1000D;
-//        long bps = (long) ((double) encoded.getLength() / durationSeconds);
-//        LOGGER.info("Finished upload at a rate of {}/s", humanReadableByteCountSI(bps));
 
         return parent;
     }
@@ -263,39 +302,10 @@ public class SheetIO {
         ));
     }
 
-    private Map<FileChunk, File> processChunks(List<FileChunk> chunks, File parent, Upload uploadType, String title, long size, Consumer<Double> statusUpdate) {
-        var index = new AtomicInteger();
-        var totalBytesUploaded = new AtomicLong();
-        final double totalChunks = chunks.size();
-        var map = chunks.stream().collect(Collectors.toMap(c -> c, c -> {
-            if (statusUpdate != null) {
-                statusUpdate.accept(index.get() / totalChunks);
-            }
-
-            printProgress(title, totalBytesUploaded.getAndAdd(c.getBytes().length), size, index.getAndIncrement(), chunks.size());
-            return processChunk(c, parent, uploadType);
-        }));
-
-        if (statusUpdate != null) {
-            statusUpdate.accept(1D);
-        }
-
-        printProgress(title, size, size, chunks.size(), chunks.size());
-        return map;
-    }
-
-    private void printProgress(String title, long currSize, long totalSize, int index, int total) {
-        System.out.println(Utility.progressBar("Uploading " + title, humanReadableByteCountSI(currSize) + "/" + humanReadableByteCountSI(totalSize), 40, index / (double) total));
-    }
-
     private File processChunk(FileChunk chunk, File parent, Upload uploadType) {
         try {
-            // Stagger uploads STAGGER_MS ms
-//            sleep(chunk.getIndex() * STAGGER_MS);
-
             LOGGER.info("Uploading chunk-{}", chunk.getIndex() + 1);
 
-//            LOGGER.info("Processing chunk #{} ({})", chunk.getIndex(), humanReadableByteCountSI(chunk.getBytes().length));
             var content = new ByteArrayContent("text/tab-separated-values", chunk.getBytes());
             var request = drive.files().create(new File()
                     .setMimeType(Mime.SHEET.getMime())
@@ -312,9 +322,6 @@ public class SheetIO {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-//        finally {
-//            LOGGER.info("Done processing #{}", chunk.getIndex());
-//        }
     }
 
     public void setStarred(String id, boolean starred) throws IOException {
@@ -426,7 +433,7 @@ public class SheetIO {
             LOGGER.info("Saving {}...", name);
 
             try {
-                uploadData(name, "/", fileData.getSize(), maxSheetSize, compress, Upload.MULTIPART, in);
+                uploadDataFile(name, "/", fileData.getSize(), maxSheetSize, compress, Upload.MULTIPART, in);
             } catch (IOException e) {
                 LOGGER.error("An error occurred while uploading the " + fileId, e);
             }

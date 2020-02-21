@@ -39,12 +39,14 @@ message ListResponse {
 
 message UploadRequest {
     string token = 1; // The Google authentication token
-    string file = 2; // The file path, if uploading
+    //    string file = 2; // The file path, if uploading
     string name = 3; // The name of the file, to not rely on path name
     string id = 4; // The file ID, if cloning
     Upload upload = 5; // The upload type
     Compression compression = 6; // The compression setting
     int64 sheetSize = 7; // The maximum size (in bytes) each sheet can be
+    int64 fileSize = 8;
+    string processingId = 9; // The untrimmed unique processing UUID
 
     enum Upload {
         MULTIPART = 0;
@@ -58,15 +60,31 @@ message UploadRequest {
 }
 
 message UploadResponse {
-    UploadStatus status = 1; // The upload status
-    double percentage = 2; // The 0-1 percentage of the upload
-    ListItem item = 3; // The new ListItem uploaded. This populated if the status is COMPLETE.
+    UploadStatus uploadStatus = 1;
+    ListItem item = 2; // The new ListItem uploaded. This populated if the status is COMPLETE.
 
     enum UploadStatus {
-        PENDING = 0;
-        UPLOADING = 1;
-        COMPLETE = 2;
+        READY = 0;
+        COMPLETE = 1;
     }
+}
+
+message FileChunk {
+    string processingId = 1; // The untrimmed processing UUID of the upload. No authentication is needed due to this
+    // always being abstracted by something like a webserver.
+
+    bytes content = 2; // The file content. May be empty if the status is ChunkStatus.Terminated
+    ChunkStatus status = 3; // The status of the transfer
+
+    enum ChunkStatus {
+        Normal = 0;
+        Complete = 1;
+        Terminated = 2;
+    }
+}
+
+message ChunkResponse {
+    int64 currentBuffer = 1; // The amount of bytes not processed yet in the current buffer
 }
 
 message DownloadRequest {
@@ -148,8 +166,13 @@ service HolySheetService {
     // Lists files with an optional path
     rpc listFiles(ListRequest) returns (ListResponse);
 
-    // Uploads a file
+    // Starts the upload of a file. This essentially creates a virtual "processor" as the given processing ID, and as
+    // "FileChunk"s (via sendFile()) come in, the data is processed and uploaded accordingly to avoid any file IO server-side.
+    // A response is sent when the sendFile() method is complete.
     rpc uploadFile(UploadRequest) returns (stream UploadResponse);
+
+    // Sends a file data stream to be processed to avoid filesystem IO
+    rpc sendFile (stream FileChunk) returns (stream ChunkResponse);
 
     // Downloads a remote file
     rpc downloadFile(DownloadRequest) returns (stream DownloadResponse);

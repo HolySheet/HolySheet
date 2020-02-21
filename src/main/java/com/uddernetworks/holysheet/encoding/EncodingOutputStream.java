@@ -6,8 +6,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.function.BiConsumer;
 
 import static com.uddernetworks.holysheet.encoding.DecodingOutputStream.BASE;
@@ -27,17 +25,23 @@ public class EncodingOutputStream extends FilterOutputStream {
 //    public static final int CELL_WIDTH = 5; // Half of 0xFFFF
 
     private final long maxLength;
-    private final BiConsumer<Integer, byte[]> chunkConsumer;
     private int chunkIndex = 0;
+
+    private BiConsumer<Integer, byte[]> chunkConsumer;
+    private Runnable onClose;
 
     private long length = 0;
     private int bufferLength = 0;
-    private int index = 0;
+    private int lineIndex = 0;
 
     private int ebq = 0;
     private int en = 0;
 
     private ByteArrayOutputStream buffer;
+
+    public EncodingOutputStream(long maxLength) {
+        this(maxLength, null);
+    }
 
     public EncodingOutputStream(long maxLength, BiConsumer<Integer, byte[]> chunkConsumer) {
         super(new ByteArrayOutputStream());
@@ -65,9 +69,9 @@ public class EncodingOutputStream extends FilterOutputStream {
             var first = ENCODING_TABLE[ev % BASE];
             var second = ENCODING_TABLE[ev / BASE];
 
-            if (++index % CELL_WIDTH == 0) {
+            if (++lineIndex % CELL_WIDTH == 0) {
                 if (first != '=' && first != '\'') {
-                    index = 0;
+                    lineIndex = 0;
 
                     if (bufferLength >= maxLength) {
                         bufferLength = 0;
@@ -79,7 +83,7 @@ public class EncodingOutputStream extends FilterOutputStream {
                         bufferLength++;
                     }
                 } else {
-                    index--;
+                    lineIndex--;
                 }
             }
 
@@ -108,11 +112,21 @@ public class EncodingOutputStream extends FilterOutputStream {
             }
         }
 
-        if (en > 0 || index > 0) {
+        if (en > 0 || lineIndex > 0) {
             chunkConsumer.accept(chunkIndex++, buffer.toByteArray());
         }
 
         super.flush();
+
+        onClose.run();
+    }
+
+    public void setChunkConsumer(BiConsumer<Integer, byte[]> chunkConsumer) {
+        this.chunkConsumer = chunkConsumer;
+    }
+
+    public void setOnClose(Runnable onClose) {
+        this.onClose = onClose;
     }
 
     public long getLength() {
@@ -121,6 +135,10 @@ public class EncodingOutputStream extends FilterOutputStream {
 
     public int getChunkIndex() {
         return chunkIndex;
+    }
+
+    public int getBufferLength() {
+        return bufferLength;
     }
 
     public static EncodingOutputStream encode(InputStream inputStream, long maxLength, BiConsumer<Integer, byte[]> chunkConsumer) throws IOException {

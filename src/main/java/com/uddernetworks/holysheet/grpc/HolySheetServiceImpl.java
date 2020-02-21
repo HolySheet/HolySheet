@@ -1,13 +1,14 @@
 package com.uddernetworks.holysheet.grpc;
 
 import com.uddernetworks.grpc.HolySheetServiceGrpc.HolySheetServiceImplBase;
-import com.uddernetworks.grpc.HolysheetService;
+import com.uddernetworks.grpc.HolysheetService.ChunkResponse;
 import com.uddernetworks.grpc.HolysheetService.CodeExecutionCallbackResponse;
 import com.uddernetworks.grpc.HolysheetService.CodeExecutionRequest;
 import com.uddernetworks.grpc.HolysheetService.CodeExecutionResponse;
 import com.uddernetworks.grpc.HolysheetService.DownloadRequest;
 import com.uddernetworks.grpc.HolysheetService.DownloadResponse;
 import com.uddernetworks.grpc.HolysheetService.DownloadResponse.DownloadStatus;
+import com.uddernetworks.grpc.HolysheetService.FileChunk;
 import com.uddernetworks.grpc.HolysheetService.ListItem;
 import com.uddernetworks.grpc.HolysheetService.ListRequest;
 import com.uddernetworks.grpc.HolysheetService.ListResponse;
@@ -27,20 +28,19 @@ import com.uddernetworks.holysheet.HolySheet;
 import com.uddernetworks.holysheet.RemoteAuthManager;
 import com.uddernetworks.holysheet.SheetManager;
 import com.uddernetworks.holysheet.command.CommandHandler;
+import com.uddernetworks.holysheet.encoding.EncodingOutputStream;
 import com.uddernetworks.holysheet.io.SheetIO;
 import io.grpc.stub.StreamObserver;
-import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.UncheckedIOException;
-import java.nio.file.Files;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 public class HolySheetServiceImpl extends HolySheetServiceImplBase {
@@ -79,66 +79,129 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
         response.onCompleted();
     }
 
+    private static Map<String, Processor> processing = new ConcurrentHashMap<>();
+
+    static class Processor {
+        private final String processingId;
+        private final EncodingOutputStream encodingOut;
+        private final Consumer<com.google.api.services.drive.model.File> onComplete;
+
+        public Processor(String processingId, long maxLength, Consumer<com.google.api.services.drive.model.File> onComplete) {
+            this.processingId = processingId;
+            this.encodingOut = new EncodingOutputStream(maxLength);
+            this.onComplete = onComplete;
+        }
+
+        public String getProcessingId() {
+            return processingId;
+        }
+
+        public EncodingOutputStream getEncodingOut() {
+            return encodingOut;
+        }
+
+        public void complete(com.google.api.services.drive.model.File file) {
+            onComplete.accept(file);
+        }
+    }
+
     @Override
     public void uploadFile(UploadRequest request, StreamObserver<UploadResponse> response) {
         useToken(request.getToken());
 
         var name = request.getName();
         name = name.substring(0, Math.min(name.length(), 32));
-        InputStream data;
-        long fileSize;
+
+        LOGGER.info("Uploading {}...", name);
 
         try {
-            if (!request.getFile().isBlank()) {
-                var file = new File(request.getFile());
-
-                if (!file.isFile()) {
-                    response.onError(new FileNotFoundException("File '" + file.getAbsolutePath() + "' does not exist"));
-                    return;
-                }
-
-                fileSize = file.length();
-                data = new FileInputStream(file);
-            } else {
+            if (request.getId() != null && !request.getId().isBlank()) {
                 var dataOptional = sheetIO.downloadFile(request.getId());
                 if (dataOptional.isPresent()) {
                     var fileData = dataOptional.get();
-                    data = fileData.getIn();
-                    fileSize = fileData.getSize();
-                } else {
-                    response.onError(new FileNotFoundException("Error downloading file '" + request.getId() + "' to be cloned"));
+                    var data = fileData.getIn();
+                    var fileSize = fileData.getSize();
+
+                    long start = System.currentTimeMillis();
+
+                    var uploaded = sheetIO.uploadDataFile(name, "/", fileSize, request.getSheetSize(), request.getCompression(), request.getUpload(), data);
+
+                    LOGGER.info("Uploaded {} in {}ms", uploaded.getId(), System.currentTimeMillis() - start);
+
+                    response.onNext(UploadResponse.newBuilder()
+                            .setItem(getListItem(uploaded))
+                            .build());
+
+                    response.onCompleted();
+
                     return;
                 }
             }
 
-            LOGGER.info("Uploading {}...", name);
+            var processor = new Processor(request.getProcessingId(), request.getSheetSize(), file -> {
+                response.onNext(UploadResponse.newBuilder()
+                        .setUploadStatus(UploadStatus.COMPLETE)
+                        .setItem(getListItem(file))
+                        .build());
+                response.onCompleted();
+            });
 
-            long start = System.currentTimeMillis();
+            processing.put(request.getProcessingId(), processor);
 
-            response.onNext(UploadResponse.newBuilder()
-                    .setStatus(UploadStatus.PENDING)
-                    .setPercentage(0)
-                    .build());
-
-            var uploaded = sheetIO.uploadData(name, fileSize, request.getSheetSize(), request.getCompression(), request.getUpload(), data, percentage ->
-                    response.onNext(UploadResponse.newBuilder()
-                            .setStatus(UploadStatus.UPLOADING)
-                            .setPercentage(percentage)
-                            .build()));
-
-            LOGGER.info("Uploaded {} in {}ms", uploaded.getId(), System.currentTimeMillis() - start);
+            sheetIO.uploadDataStream(name, "/", request.getFileSize(), request.getSheetSize(), request.getCompression(), request.getUpload(), processor.getEncodingOut())
+                    .thenAccept(processor::complete);
 
             response.onNext(UploadResponse.newBuilder()
-                    .setStatus(UploadStatus.COMPLETE)
-                    .setPercentage(1)
-                    .setItem(getListItem(uploaded))
+                    .setUploadStatus(UploadStatus.READY)
                     .build());
 
-            response.onCompleted();
         } catch (IOException e) {
             LOGGER.error("An error has occurred while uploading a file", e);
             response.onError(e);
         }
+    }
+
+    @Override
+    public StreamObserver<FileChunk> sendFile(StreamObserver<ChunkResponse> response) {
+        AtomicReference<Processor> processor = new AtomicReference<>();
+        return new StreamObserver<>() {
+            @Override
+            public void onNext(FileChunk chunk) {
+                if (!processing.containsKey(chunk.getProcessingId())) {
+                    LOGGER.error("Unknown processing ID: {}", chunk.getProcessingId());
+                    return;
+                }
+
+                processor.set(processing.get(chunk.getProcessingId()));
+
+                try {
+                    processor.get().getEncodingOut().write(chunk.getContent().toByteArray());
+
+                    if (chunk.getStatus() == FileChunk.ChunkStatus.Complete) {
+                        processor.get().getEncodingOut().close();
+                        response.onCompleted();
+                    } else {
+                        response.onNext(ChunkResponse.newBuilder()
+                                .setCurrentBuffer(processor.get().getEncodingOut().getBufferLength())
+                                .build());
+                    }
+                } catch (IOException e) {
+                    LOGGER.error("An error occurred while writing data", e);
+                }
+            }
+
+            @Override
+            public void onError(Throwable t) {
+                LOGGER.error("An error has occurred while sending file", t);
+                response.onError(t);
+            }
+
+            @Override
+            public void onCompleted() {
+                LOGGER.info("Complete with {}", processor.get().getProcessingId());
+                response.onCompleted();
+            }
+        };
     }
 
     @Override
