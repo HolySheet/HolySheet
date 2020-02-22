@@ -67,8 +67,9 @@ public class SheetManager {
                 path = "/";
             }
 
+            var pathQuery = starred ? "" : " and properties has { key='path' and value='" + path + "' }";
             var extra = starred ? " and properties has { key='starred' and value='true' }" : "";
-            return getFiles(-1, "properties has { key='directParent' and value='true' } and properties has { key='path' and value='" + path + "' } and trashed = " + trashed + extra, Mime.FOLDER);
+            return getFiles(-1, "properties has { key='directParent' and value='true' }" + pathQuery + " and trashed = " + trashed + extra, Mime.FOLDER);
         } catch (IOException e) {
             LOGGER.error("An error occurred while listing uploads", e);
             return Collections.emptyList();
@@ -103,11 +104,11 @@ public class SheetManager {
     /**
      * Adds or overwrites  properties to the given file.
      *
-     * @param file The file
+     * @param file       The file
      * @param properties The properties to add or overwrite
      */
     public void addProperties(File file, Map<String, String> properties) throws IOException {
-        var combined = new HashMap<>(file.getProperties());
+        var combined = new HashMap<>(file.getProperties() == null ? Collections.emptyMap() : file.getProperties());
         combined.putAll(properties);
         setProperties(file, combined);
     }
@@ -115,7 +116,7 @@ public class SheetManager {
     /**
      * Adds or overwrites  properties to the given file.
      *
-     * @param id The ID of the file
+     * @param id         The ID of the file
      * @param properties The properties to add or overwrite
      */
     public void addProperties(String id, Map<String, String> properties) throws IOException {
@@ -129,7 +130,7 @@ public class SheetManager {
      * Sets the file's properties to the given map. Any properties previously set that are not in the properties
      * argument will be cleared.
      *
-     * @param file The file
+     * @param file       The file
      * @param properties The properties to set
      */
     public void setProperties(File file, Map<String, String> properties) throws IOException {
@@ -140,7 +141,7 @@ public class SheetManager {
      * Sets the file's properties to the given map. Any properties previously set that are not in the properties
      * argument will be cleared.
      *
-     * @param id The ID of the file
+     * @param id         The ID of the file
      * @param properties The properties to set
      */
     public void setProperties(String id, Map<String, String> properties) throws IOException {
@@ -171,13 +172,27 @@ public class SheetManager {
      * @throws IOException
      */
     public List<File> getFiles(int limit, String query, Mime... mimes) throws IOException {
+        return getFiles(limit, query, DRIVE_FIELDS, mimes);
+    }
+
+    /**
+     * Gets the files in the google drive with the given limit and matching mime types.
+     *
+     * @param limit  The limit of files to find (-1 for all files, USE SPARINGLY)
+     * @param query  An additional query to search for
+     * @param fields The fields to request
+     * @param mimes  The mime types to match for
+     * @return The list of files
+     * @throws IOException
+     */
+    public List<File> getFiles(int limit, String query, String fields, Mime... mimes) throws IOException {
         limit = Math.min(-1, limit);
         var mimeTypes = Arrays.stream(mimes).map(Mime::getMime).collect(Collectors.toUnmodifiableSet());
         var foundFiles = new ArrayList<File>();
 
         var pageToken = "";
         do {
-            var result = getPagesFiles(pageToken, 50, mimes, query);
+            var result = getPagesFiles(pageToken, 50, mimes, query, fields);
             pageToken = result.getNextPageToken();
             var files = result.getFiles();
             if (files == null || files.isEmpty()) {
@@ -200,10 +215,10 @@ public class SheetManager {
         return foundFiles;
     }
 
-    private FileList getPagesFiles(String pageToken, int pageSize, Mime[] mimes, String query) throws IOException {
+    private FileList getPagesFiles(String pageToken, int pageSize, Mime[] mimes, String query, String fields) throws IOException {
         var builder = drive.files().list()
                 .setPageSize(pageSize)
-                .setFields("nextPageToken, files(" + DRIVE_FIELDS + ")");
+                .setFields("nextPageToken, files(" + fields + ")");
 
         if (pageToken != null && !pageToken.isBlank()) {
             builder.setPageToken(pageToken);

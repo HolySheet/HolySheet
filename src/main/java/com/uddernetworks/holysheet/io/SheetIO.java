@@ -21,8 +21,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Scanner;
@@ -30,6 +34,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import static com.uddernetworks.holysheet.SheetManager.PATH_REGEX;
 import static com.uddernetworks.holysheet.utility.Utility.DRIVE_FIELDS;
@@ -347,6 +352,24 @@ public class SheetIO {
         }
 
         return path;
+    }
+
+    public void createFolder(String path) throws IOException {
+        var folders = new ArrayList<>(getFolders());
+
+        if (folders.contains(path)) {
+            return;
+        }
+
+        folders.add(path);
+
+        sheetManager.addProperties(sheetManager.getSheetStore(), Map.of("folders", String.join(",", folders)));
+    }
+
+    public List<String> getFolders() {
+        var properties = sheetManager.getSheetStore().getProperties();
+        var folderString = properties == null ? "" : properties.getOrDefault("folders", "");
+        return new ArrayList<>(Arrays.stream(folderString.split(",")).collect(Collectors.toUnmodifiableList()));
     }
 
     public void deleteData(String id, boolean permanent) throws IOException {

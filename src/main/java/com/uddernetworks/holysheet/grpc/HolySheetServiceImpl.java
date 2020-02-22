@@ -1,14 +1,17 @@
 package com.uddernetworks.holysheet.grpc;
 
 import com.uddernetworks.grpc.HolySheetServiceGrpc.HolySheetServiceImplBase;
+import com.uddernetworks.grpc.HolysheetService;
 import com.uddernetworks.grpc.HolysheetService.ChunkResponse;
 import com.uddernetworks.grpc.HolysheetService.CodeExecutionCallbackResponse;
 import com.uddernetworks.grpc.HolysheetService.CodeExecutionRequest;
 import com.uddernetworks.grpc.HolysheetService.CodeExecutionResponse;
+import com.uddernetworks.grpc.HolysheetService.CreateFolderRequest;
 import com.uddernetworks.grpc.HolysheetService.DownloadRequest;
 import com.uddernetworks.grpc.HolysheetService.DownloadResponse;
 import com.uddernetworks.grpc.HolysheetService.DownloadResponse.DownloadStatus;
 import com.uddernetworks.grpc.HolysheetService.FileChunk;
+import com.uddernetworks.grpc.HolysheetService.FolderResponse;
 import com.uddernetworks.grpc.HolysheetService.ListItem;
 import com.uddernetworks.grpc.HolysheetService.ListRequest;
 import com.uddernetworks.grpc.HolysheetService.ListResponse;
@@ -37,6 +40,7 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
@@ -46,6 +50,7 @@ import java.util.stream.Collectors;
 public class HolySheetServiceImpl extends HolySheetServiceImplBase {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(HolySheetServiceImpl.class);
+    private static final Map<String, Processor> processing = new ConcurrentHashMap<>();
 
     private final HolySheet holySheet;
     private SheetManager sheetManager;
@@ -67,19 +72,18 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
     public void listFiles(ListRequest request, StreamObserver<ListResponse> response) {
         useToken(request.getToken());
 
-        var files = this.sheetManager.listUploads(request.getPath(), request.getStarred(), request.getTrashed())
+        var files = sheetManager.listUploads(request.getPath(), request.getStarred(), request.getTrashed())
                 .stream()
                 .map(this::getListItem)
                 .collect(Collectors.toUnmodifiableList());
 
         response.onNext(ListResponse.newBuilder()
                 .addAllItems(files)
+                .addAllFolders(sheetIO.getFolders())
                 .build());
 
         response.onCompleted();
     }
-
-    private static Map<String, Processor> processing = new ConcurrentHashMap<>();
 
     static class Processor {
         private final String processingId;
@@ -109,6 +113,7 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
     public void uploadFile(UploadRequest request, StreamObserver<UploadResponse> response) {
         useToken(request.getToken());
 
+        var path = sheetIO.cleanPath(request.getPath());
         var name = request.getName();
         name = name.substring(0, Math.min(name.length(), 32));
 
@@ -124,9 +129,11 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
 
                     long start = System.currentTimeMillis();
 
-                    var uploaded = sheetIO.uploadDataFile(name, "/", fileSize, request.getSheetSize(), request.getCompression(), request.getUpload(), data);
+                    var uploaded = sheetIO.uploadDataFile(name, path, fileSize, request.getSheetSize(), request.getCompression(), request.getUpload(), data);
 
                     LOGGER.info("Uploaded {} in {}ms", uploaded.getId(), System.currentTimeMillis() - start);
+
+                    sheetIO.createFolder(path);
 
                     response.onNext(UploadResponse.newBuilder()
                             .setItem(getListItem(uploaded))
@@ -139,6 +146,12 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
             }
 
             var processor = new Processor(request.getProcessingId(), request.getSheetSize(), file -> {
+                try {
+                    sheetIO.createFolder(path);
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+
                 response.onNext(UploadResponse.newBuilder()
                         .setUploadStatus(UploadStatus.COMPLETE)
                         .setItem(getListItem(file))
@@ -148,7 +161,7 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
 
             processing.put(request.getProcessingId(), processor);
 
-            sheetIO.uploadDataStream(name, "/", request.getFileSize(), request.getSheetSize(), request.getCompression(), request.getUpload(), processor.getEncodingOut())
+            sheetIO.uploadDataStream(name, path, request.getFileSize(), request.getSheetSize(), request.getCompression(), request.getUpload(), processor.getEncodingOut())
                     .thenAccept(processor::complete);
 
             response.onNext(UploadResponse.newBuilder()
@@ -325,6 +338,20 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
         }
     }
 
+    @Override
+    public void createFolder(CreateFolderRequest request, StreamObserver<FolderResponse> response) {
+        useToken(request.getToken());
+
+        try {
+            sheetIO.createFolder(request.getPath());
+            response.onNext(FolderResponse.newBuilder().build());
+            response.onCompleted();
+        } catch (IOException e) {
+            LOGGER.error("An error has occurred while creating folder \"" + request.getPath() + "\"", e);
+            response.onError(e);
+        }
+    }
+
     public void acceptCallback(CodeExecutionCallbackResponse callbackResponse) {
         if (response != null) {
             response.onNext(callbackResponse);
@@ -337,7 +364,6 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
                 .setName(file.getName())
                 .setId(file.getId())
                 .setPath(CommandHandler.getPath(file))
-                .setFolder(false)
                 .setSize(CommandHandler.getSize(file))
                 .setSheets(CommandHandler.getSheetCount(file))
                 .setDate(file.getModifiedTime().getValue())

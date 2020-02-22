@@ -7,7 +7,6 @@ message ListItem {
     string name = 1;
     string id = 2;
     string path = 3;
-    bool folder = 4;
     int32 sheets = 5;
     int64 size = 6;
     int64 date = 7;
@@ -35,11 +34,12 @@ message ListRequest {
 
 message ListResponse {
     repeated ListItem items = 1; // A list of items retrieved
+    repeated string folders = 2; // A list of all folders present
 }
 
 message UploadRequest {
     string token = 1; // The Google authentication token
-    //    string file = 2; // The file path, if uploading
+    string path = 2; // The absolute path of the upload
     string name = 3; // The name of the file, to not rely on path name
     string id = 4; // The file ID, if cloning
     Upload upload = 5; // The upload type
@@ -85,6 +85,14 @@ message FileChunk {
 
 message ChunkResponse {
     int64 currentBuffer = 1; // The amount of bytes not processed yet in the current buffer
+}
+
+message CreateFolderRequest {
+    string token = 1; // The Google authentication token
+    string path = 2; // The total path to create, creating any parents as necessary.
+}
+
+message FolderResponse {
 }
 
 message DownloadRequest {
@@ -170,6 +178,8 @@ service HolySheetService {
     // "FileChunk"s (via sendFile()) come in, the data is processed and uploaded accordingly to avoid any file IO server-side.
     // A response is sent when the sendFile() method is complete.
     rpc uploadFile(UploadRequest) returns (stream UploadResponse);
+
+    rpc createFolder(CreateFolderRequest) returns (FolderResponse);
 
     // Sends a file data stream to be processed to avoid filesystem IO
     rpc sendFile (stream FileChunk) returns (stream ChunkResponse);
