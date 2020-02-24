@@ -1,12 +1,14 @@
 <h1 align="center">HolySheet</h1>
 <p align="center"><i>Store any file, of any size to Google Sheets</i></p>
 <hr><p align="center">
-  <a href="http://hits.dwyl.io/RubbaBoy/HolySheet"><img alt="HitCount" src="http://hits.dwyl.io/RubbaBoy/HolySheet.svg" /></a>
-  <img alt="Stars" src="https://img.shields.io/github/stars/RubbaBoy/HolySheet.svg?label=Stars&style=flat" />
-  <a href="https://wakatime.com/badge/github/RubbaBoy/HolySheet"><img alt="Time Tracker" src="https://wakatime.com/badge/github/RubbaBoy/HolySheet.svg"/></a>
-  <a href="https://github.com/RubbaBoy/HolySheet/issues"><img alt="GitHub issues" src="https://img.shields.io/github/issues/RubbaBoy/HolySheet.svg"/></a>
-  <a href="https://github.com/RubbaBoy/HolySheet/graphs/contributors"><img alt="GitHub contributors" src="https://img.shields.io/github/contributors/RubbaBoy/HolySheet"></a>
-  <a href="https://github.com/RubbaBoy/HolySheet/blob/master/LICENSE.txt"><img src="https://img.shields.io/github/license/RubbaBoy/HolySheet.svg" alt="License"/></a>
+  <a href="http://hits.dwyl.io/HolySheetOrg/HolySheet"><img alt="HitCount" src="http://hits.dwyl.io/HolySheetOrg/HolySheet.svg" /></a>
+  <img alt="Stars" src="https://img.shields.io/github/stars/HolySheetOrg/HolySheet.svg?label=Stars&style=flat" />
+  <a href="https://wakatime.com/badge/github/HolySheetOrg/HolySheet"><img alt="Time Tracker" src="https://wakatime.com/badge/github/HolySheetOrg/HolySheet.svg"/></a>
+  <a href="https://github.com/HolySheetOrg/HolySheet/issues"><img alt="GitHub issues" src="https://img.shields.io/github/issues/HolySheetOrg/HolySheet.svg"/></a>
+  <a href="https://github.com/HolySheetOrg/HolySheet/graphs/contributors"><img alt="GitHub contributors" src="https://img.shields.io/github/contributors/HolySheetOrg/HolySheet"></a>
+  <a href="https://github.com/HolySheetOrg/HolySheet/blob/master/LICENSE.txt"><img src="https://img.shields.io/github/license/HolySheetOrg/HolySheet.svg" alt="License"/></a>
+  <a href="https://github.com/HolySheetOrg/HolySheet/actions?query=workflow%3A%22Docker+Build%22"><img src="https://github.com/HolySheetOrg/HolySheetWebserver/workflows/Docker%20Build/badge.svg" alt="Docker Build"/></a>
+  <a href="https://hub.docker.com/layers/rubbaboy/hs"><img src="https://img.shields.io/docker/pulls/rubbaboy/testback" alt="Docker Pulls"/></a>
 </p>
 
 HolySheet is a program that allows you to store arbitrary files onto Google Sheets, which does not lower storage quota on Google Drive. This is inspired by [uds](https://github.com/stewartmcgown/uds), however it can only store ~710KB of data per doc due to the use of Base64 and Docs limitations, and only has CLI usage.
