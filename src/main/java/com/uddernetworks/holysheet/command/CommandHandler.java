@@ -28,6 +28,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -42,7 +43,7 @@ public class CommandHandler implements Runnable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CommandHandler.class);
     public static final DateFormat DATE_FORMAT = new SimpleDateFormat("MM-dd-yyyy");
-    public static final Pattern ID_PATTERN = Pattern.compile("([a-zA-Z0-9-_]+)");
+    public static final Matcher ID_PATTERN = Pattern.compile("([a-zA-Z0-9-_]+)").matcher("");
 
     private final HolySheet holySheet;
     private SheetManager sheetManager;
@@ -199,7 +200,7 @@ public class CommandHandler implements Runnable {
 
     private CompletableFuture<Void> downloadIdName(String idName) {
         try {
-            if (!ID_PATTERN.matcher(idName).matches()) {
+            if (!ID_PATTERN.reset(idName).matches()) {
                 idName = sheetManager.getIdOfName(idName).orElse(idName);
             }
 
@@ -224,7 +225,7 @@ public class CommandHandler implements Runnable {
     private void remove() {
         param.remove.forEach(idName -> {
             try {
-                if (!ID_PATTERN.matcher(idName).matches()) {
+                if (!ID_PATTERN.reset(idName).matches()) {
                     idName = sheetManager.getIdOfName(idName).orElse(idName);
                 }
 
@@ -237,7 +238,7 @@ public class CommandHandler implements Runnable {
 
     private void cloneFiles() {
         for (String idName : param.clone) {
-            if (!ID_PATTERN.matcher(idName).matches()) {
+            if (!ID_PATTERN.reset(idName).matches()) {
                 idName = sheetManager.getIdOfName(idName).orElse(idName);
             }
 

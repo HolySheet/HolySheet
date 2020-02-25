@@ -17,6 +17,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -27,7 +28,7 @@ public class SheetManager {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SheetManager.class);
 
-    public static final Pattern PATH_REGEX = Pattern.compile("^\\/([\\w-]+?(\\/[\\w-]+?){0,1})*\\/$");
+    public static final Matcher PATH_REGEX = Pattern.compile("^\\/([\\w-]+?(\\/[\\w-]+?){0,1})*\\/$").matcher("");
 
     private final Drive drive;
     private final Sheets sheets;
@@ -66,7 +67,7 @@ public class SheetManager {
 
     public List<File> listUploads(String path, boolean starred, boolean trashed) {
         try {
-            if (path.isBlank() || !PATH_REGEX.matcher(path).matches()) {
+            if (path.isBlank() || !PATH_REGEX.reset(path).matches()) {
                 path = "/";
             }
 
