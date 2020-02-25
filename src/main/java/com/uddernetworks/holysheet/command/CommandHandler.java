@@ -96,8 +96,6 @@ public class CommandHandler implements Runnable {
             return;
         }
 
-        holySheet.getjShellRemote().start();
-
         holySheet.init(credentials);
         var authManager = holySheet.getAuthManager();
         sheetManager = new SheetManager(authManager.getDrive(), authManager.getSheets());

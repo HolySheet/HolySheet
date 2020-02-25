@@ -118,7 +118,9 @@ public class EncodingOutputStream extends FilterOutputStream {
 
         super.flush();
 
-        onClose.run();
+        if (onClose != null) {
+            onClose.run();
+        }
     }
 
     public void setChunkConsumer(BiConsumer<Integer, byte[]> chunkConsumer) {
