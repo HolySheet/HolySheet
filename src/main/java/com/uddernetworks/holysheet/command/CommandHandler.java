@@ -1,6 +1,7 @@
 package com.uddernetworks.holysheet.command;
 
 import com.google.api.services.drive.model.User;
+import com.uddernetworks.grpc.HolysheetService;
 import com.uddernetworks.holysheet.HolySheet;
 import com.uddernetworks.holysheet.SheetManager;
 import com.uddernetworks.holysheet.console.ConsoleTableBuilder;
@@ -21,6 +22,7 @@ import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
@@ -197,7 +199,7 @@ public class CommandHandler implements Runnable {
 
     private CompletableFuture<Void> downloadIdName(String idName) {
         try {
-            if (ID_PATTERN.matcher(idName).matches()) {
+            if (!ID_PATTERN.matcher(idName).matches()) {
                 idName = sheetManager.getIdOfName(idName).orElse(idName);
             }
 
@@ -209,7 +211,7 @@ public class CommandHandler implements Runnable {
                 return CompletableFuture.completedFuture(null);
             }
 
-            return sheetManager.getSheetIO().downloadData(new File(sheet.getName()), idName).exceptionally(t -> {
+            return sheetIO.downloadData(new File(sheet.getName()), idName).exceptionally(t -> {
                 LOGGER.error("An error occurred while downloading file", t);
                 return null;
             }).thenAccept($ -> LOGGER.info("Downloaded in {}ms", System.currentTimeMillis() - start));
@@ -220,17 +222,28 @@ public class CommandHandler implements Runnable {
     }
 
     private void remove() {
-        param.remove.forEach(file -> {
+        param.remove.forEach(idName -> {
             try {
-                sheetIO.deleteData(file, false, false);
+                if (!ID_PATTERN.matcher(idName).matches()) {
+                    idName = sheetManager.getIdOfName(idName).orElse(idName);
+                }
+
+                sheetIO.deleteData(idName, false, false);
             } catch (IOException e) {
-                LOGGER.error("An error has occurred while deleting the file " + file, e);
+                LOGGER.error("An error has occurred while deleting the file " + idName, e);
             }
         });
     }
 
     private void cloneFiles() {
-        param.clone.forEach(id -> sheetIO.cloneFile(id, sheetSize, compression ? ZIP : NONE));
+        for (String idName : param.clone) {
+            if (!ID_PATTERN.matcher(idName).matches()) {
+                idName = sheetManager.getIdOfName(idName).orElse(idName);
+            }
+
+            var method = compression ? ZIP : NONE;
+            sheetIO.cloneFile(idName, sheetSize, method);
+        }
     }
 
     private void suicideForParent(int parent) {

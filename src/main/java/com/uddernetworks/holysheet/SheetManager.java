@@ -51,7 +51,10 @@ public class SheetManager {
 
     public Optional<String> getIdOfName(String name) {
         try {
-            return getCollectionFirst(getFiles(-1, "parents in '" + getSheetStore().getId() + "' and name contains '" + name.replace("'", "") + "'", Mime.DOCUMENT)).map(File::getId);
+            final String query = "parents in '" + getSheetStore().getId() + "' and name contains '" + name.replace("'", "") + "'";
+            var files = getFiles(1, query, Mime.FOLDER);
+
+            return getCollectionFirst(files).map(File::getId);
         } catch (IOException e) {
             return Optional.empty();
         }

@@ -302,7 +302,7 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
 
     @Override
     public void executeCode(CodeExecutionRequest request, StreamObserver<CodeExecutionResponse> response) {
-        holySheet.getjShellRemote().queueRequest(request, response);
+        // was some jshell rubbish.
     }
 
     @Override
