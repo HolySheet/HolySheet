@@ -20,8 +20,8 @@ jobs:
         with:
           gradle-version: 5.6.2
           arguments: shadowJar
-      - run: "${GITHUB_REF##*/}"
-      - run: ${GITHUB_REF##*/}
+#      - run: echo "${GITHUB_REF##*/}"
+#      - run: ${GITHUB_REF##*/}
       - name: Publish to Registry
         uses: elgohr/Publish-Docker-Github-Action@master
         with:
