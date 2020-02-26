@@ -1,13 +1,13 @@
 <h1 align="center">HolySheet</h1>
 <p align="center"><i>Store any file, of any size to Google Sheets</i></p>
 <hr><p align="center">
-  <a href="http://hits.dwyl.io/HolySheetNet/HolySheet"><img alt="HitCount" src="http://hits.dwyl.io/HolySheetNet/HolySheet.svg" /></a>
-  <img alt="Stars" src="https://img.shields.io/github/stars/HolySheetNet/HolySheet.svg?label=Stars&style=flat" />
-  <a href="https://wakatime.com/badge/github/HolySheetNet/HolySheet"><img alt="Time Tracker" src="https://wakatime.com/badge/github/HolySheetNet/HolySheet.svg"/></a>
-  <a href="https://github.com/HolySheetNet/HolySheet/issues"><img alt="GitHub issues" src="https://img.shields.io/github/issues/HolySheetNet/HolySheet.svg"/></a>
-  <a href="https://github.com/HolySheetNet/HolySheet/graphs/contributors"><img alt="GitHub contributors" src="https://img.shields.io/github/contributors/HolySheetNet/HolySheet"></a>
-  <a href="https://github.com/HolySheetNet/HolySheet/blob/master/LICENSE.txt"><img src="https://img.shields.io/github/license/HolySheetNet/HolySheet.svg" alt="License"/></a>
-  <a href="https://github.com/HolySheetNet/HolySheet/actions?query=workflow%3A%22Docker+Build%22"><img src="https://github.com/HolySheetNet/HolySheetWebserver/workflows/Docker%20Build/badge.svg" alt="Docker Build"/></a>
+  <a href="http://hits.dwyl.io/HolySheet/HolySheet"><img alt="HitCount" src="http://hits.dwyl.io/HolySheet/HolySheet.svg" /></a>
+  <img alt="Stars" src="https://img.shields.io/github/stars/HolySheet/HolySheet.svg?label=Stars&style=flat" />
+  <a href="https://wakatime.com/badge/github/HolySheet/HolySheet"><img alt="Time Tracker" src="https://wakatime.com/badge/github/HolySheet/HolySheet.svg"/></a>
+  <a href="https://github.com/HolySheet/HolySheet/issues"><img alt="GitHub issues" src="https://img.shields.io/github/issues/HolySheet/HolySheet.svg"/></a>
+  <a href="https://github.com/HolySheet/HolySheet/graphs/contributors"><img alt="GitHub contributors" src="https://img.shields.io/github/contributors/HolySheet/HolySheet"></a>
+  <a href="https://github.com/HolySheet/HolySheet/blob/master/LICENSE.txt"><img src="https://img.shields.io/github/license/HolySheet/HolySheet.svg" alt="License"/></a>
+  <a href="https://github.com/HolySheet/HolySheet/actions?query=workflow%3A%22Docker+Build%22"><img src="https://github.com/HolySheet/HolySheetWebserver/workflows/Docker%20Build/badge.svg" alt="Docker Build"/></a>
   <a href="https://hub.docker.com/layers/rubbaboy/hs"><img src="https://img.shields.io/docker/pulls/rubbaboy/testback" alt="Docker Pulls"/></a>
 </p>
 
@@ -15,7 +15,7 @@ HolySheet is a program that allows you to store arbitrary files onto Google Shee
 
 HolySheet uses Google Sheets, which has an undocumented maximum 25.9MB* of data capacity in my less-than-professional testing. A modified Base91 algorithm is also used to efficiently convert arbitrary files into text to work with Sheets. Compression to Zip is also offered, with other compression methods planned.
 
-For the official GUI application, see [SheetyGUI](https://github.com/HolySheetNet/SheetyGUI).
+For the official GUI application, see [SheetyGUI](https://github.com/HolySheet/SheetyGUI).
 
 *\* This could be more, it arbitrarily throws 500 ISE's at upload requests with more (A more stable and recommended number is 10MB)*
 

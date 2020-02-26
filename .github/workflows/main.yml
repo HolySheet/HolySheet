@@ -28,3 +28,4 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
           snapshot: true
           dockerfile: Dockerfile
+          tags: ${GITHUB_REF##*/}
