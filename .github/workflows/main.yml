@@ -24,6 +24,10 @@ jobs:
         shell: bash
         run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
         id: get_branch
+      - name: Get commit hash
+        shell: bash
+        run: echo "##[set-output name=hash;]$(echo $(git rev-parse --short "$GITHUB_SHA"))"
+        id: get_hash
       - name: Publish to Registry
         uses: elgohr/Publish-Docker-Github-Action@master
         with:
@@ -32,4 +36,4 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
           snapshot: true
           dockerfile: Dockerfile
-          tags: ${{ steps.get_branch.outputs.branch }}
+          tags: "${{ steps.get_branch.outputs.branch }}-${{ ${steps.get_hash.outputs.hash:0:8} }}"
