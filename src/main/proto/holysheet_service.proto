@@ -214,5 +214,6 @@ service HolySheetService {
     // Moves a file from one path to another
     rpc moveFile(MoveFileRequest) returns (MoveFileResponse);
 
+    // Renames a given file to a new name
     rpc renameFile(RenameRequest) returns (RenameResponse);
 }
