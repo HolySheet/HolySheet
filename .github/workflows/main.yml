@@ -36,4 +36,4 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
           snapshot: true
           dockerfile: Dockerfile
-          tags: "${{ steps.get_branch.outputs.branch }}-${steps.get_hash.outputs.hash:0:8}"
+          tags: "${{ steps.get_branch.outputs.branch }}-${{ steps.get_hash.outputs.hash:0:8 }}"
