@@ -20,8 +20,10 @@ jobs:
         with:
           gradle-version: 5.6.2
           arguments: shadowJar
-#      - run: echo "${GITHUB_REF##*/}"
-#      - run: ${GITHUB_REF##*/}
+      - name: Get branch name
+        shell: bash
+        run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
+        id: get_branch
       - name: Publish to Registry
         uses: elgohr/Publish-Docker-Github-Action@master
         with:
@@ -30,4 +32,4 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
           snapshot: true
           dockerfile: Dockerfile
-          tags: "${GITHUB_REF##*/}"
+          tags: ${{ steps.get_branch.outputs.branch }}
