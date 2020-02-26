@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package com.uddernetworks.grpc.sheetyGui;
+
+message SelectorRequest {
+    string title = 1;
+    bool multiSelect = 2;
+    string initialDirectory = 3;
+    SelectionMode mode = 4;
+    FileSelection selectionMode = 5;
+
+    enum SelectionMode {
+        Open = 0;
+        Save = 1;
+    }
+
+    enum FileSelection {
+        Files = 0;
+        Directories = 1;
+        All = 2;
+    }
+}
+
+message SelectorResponse {
+    repeated string files = 1;
+    bool cancelled = 2;
+}
+
+message ClipboardRequest {
+}
+
+message ClipboardResponse {
+    string content = 1;
+}
+
+service SheetyGUIService {
+
+    // Opens a Java file selector
+    rpc openFileSelector(SelectorRequest) returns (SelectorResponse);
+
+    // Get the contents of the clipboars
+    rpc getClipboard(ClipboardRequest) returns (ClipboardResponse);
+}

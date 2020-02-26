@@ -1,5 +1,6 @@
 package com.uddernetworks.holysheet.grpc;
 
+import com.uddernetworks.holysheet.AuthManager;
 import com.uddernetworks.holysheet.HolySheet;
 import com.uddernetworks.holysheet.SheetManager;
 import io.grpc.Server;
@@ -16,21 +17,19 @@ public class GRPCClient {
     private static final Logger LOGGER = LoggerFactory.getLogger(GRPCClient.class);
 
     private final HolySheetServiceImpl service;
+    private final SheetyGUIServiceImpl sheetyGUIService;
     private Server server;
 
-    public GRPCClient(HolySheet holySheet) {
-        this.service = new HolySheetServiceImpl(holySheet);
-    }
-
-    public static void main(String[] args) {
-        var client = new GRPCClient(null);
-        client.start(8888);
+    public GRPCClient(AuthManager authManager) {
+        service = new HolySheetServiceImpl(authManager);
+        sheetyGUIService = new SheetyGUIServiceImpl();
     }
 
     public void start(int port) {
         try {
             server = ServerBuilder.forPort(port)
                     .addService(service)
+                    .addService(sheetyGUIService)
                     .build();
 
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {

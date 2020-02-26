@@ -1,11 +1,10 @@
 package com.uddernetworks.holysheet.grpc;
 
+import com.google.protobuf.Descriptors;
+import com.google.protobuf.GeneratedMessageV3;
 import com.uddernetworks.grpc.HolySheetServiceGrpc.HolySheetServiceImplBase;
 import com.uddernetworks.grpc.HolysheetService;
 import com.uddernetworks.grpc.HolysheetService.ChunkResponse;
-import com.uddernetworks.grpc.HolysheetService.CodeExecutionCallbackResponse;
-import com.uddernetworks.grpc.HolysheetService.CodeExecutionRequest;
-import com.uddernetworks.grpc.HolysheetService.CodeExecutionResponse;
 import com.uddernetworks.grpc.HolysheetService.CreateFolderRequest;
 import com.uddernetworks.grpc.HolysheetService.DownloadRequest;
 import com.uddernetworks.grpc.HolysheetService.DownloadResponse;
@@ -15,7 +14,6 @@ import com.uddernetworks.grpc.HolysheetService.FolderResponse;
 import com.uddernetworks.grpc.HolysheetService.ListItem;
 import com.uddernetworks.grpc.HolysheetService.ListRequest;
 import com.uddernetworks.grpc.HolysheetService.ListResponse;
-import com.uddernetworks.grpc.HolysheetService.ListenCallbacksRequest;
 import com.uddernetworks.grpc.HolysheetService.MoveFileRequest;
 import com.uddernetworks.grpc.HolysheetService.MoveFileResponse;
 import com.uddernetworks.grpc.HolysheetService.RemoveRequest;
@@ -29,6 +27,7 @@ import com.uddernetworks.grpc.HolysheetService.StarResponse;
 import com.uddernetworks.grpc.HolysheetService.UploadRequest;
 import com.uddernetworks.grpc.HolysheetService.UploadResponse;
 import com.uddernetworks.grpc.HolysheetService.UploadResponse.UploadStatus;
+import com.uddernetworks.holysheet.AuthManager;
 import com.uddernetworks.holysheet.HolySheet;
 import com.uddernetworks.holysheet.RemoteAuthManager;
 import com.uddernetworks.holysheet.SheetManager;
@@ -39,10 +38,15 @@ import io.grpc.stub.StreamObserver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
@@ -54,25 +58,47 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
     private static final Logger LOGGER = LoggerFactory.getLogger(HolySheetServiceImpl.class);
     private static final Map<String, Processor> processing = new ConcurrentHashMap<>();
 
-    private final HolySheet holySheet;
-    private SheetManager sheetManager;
-    private SheetIO sheetIO;
-    private StreamObserver<CodeExecutionCallbackResponse> response;
+    private final AuthManager authManager;
+    private final SheetManager localSheetManager;
 
-    public HolySheetServiceImpl(HolySheet holySheet) {
-        this.holySheet = holySheet;
+    public HolySheetServiceImpl(AuthManager authManager) {
+        SheetManager sheetManager = null;
+        if ((this.authManager = authManager) != null) {
+            sheetManager = new SheetManager(authManager.getDrive(), authManager.getSheets());
+        }
+        this.localSheetManager = sheetManager;
     }
 
-    private void useToken(String token) {
+    private SheetManager getSheetManager(GeneratedMessageV3 request, StreamObserver<? extends GeneratedMessageV3> response) {
+        if (localSheetManager != null) {
+            return localSheetManager;
+        }
+
+        var fields = request.getAllFields();
+        var tokenDescOptional = fields.keySet().stream().filter(desc -> desc.getName().equals("token")).findFirst();
+        if (tokenDescOptional.isEmpty()) {
+            var exception = new AuthException("No token found. If this request comes from a server, this is CRITICAL as there is simply no 'token' item in the proto file. Or it could be missing, I didn't really test what happens if no token is sent over.");
+            response.onError(exception);
+            throw exception;
+        }
+
+        return getSheetManager((String) fields.get(tokenDescOptional.get()));
+    }
+
+    private SheetManager getSheetManager(@Nullable String token) {
+        if (token == null) {
+            return localSheetManager;
+        }
+
         var authManager = new RemoteAuthManager();
         authManager.useToken(token);
-        sheetManager = new SheetManager(authManager.getDrive(), authManager.getSheets());
-        sheetIO = sheetManager.getSheetIO();
+        return new SheetManager(authManager.getDrive(), authManager.getSheets());
     }
 
     @Override
     public void listFiles(ListRequest request, StreamObserver<ListResponse> response) {
-        useToken(request.getToken());
+        var sheetManager = getSheetManager(request, response);
+        var sheetIO = sheetManager.getSheetIO();
 
         var files = sheetManager.listUploads(request.getPath(), request.getStarred(), request.getTrashed())
                 .stream()
@@ -113,7 +139,8 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
 
     @Override
     public void uploadFile(UploadRequest request, StreamObserver<UploadResponse> response) {
-        useToken(request.getToken());
+        var sheetManager = getSheetManager(request, response);
+        var sheetIO = sheetManager.getSheetIO();
 
         var path = sheetIO.cleanPath(request.getPath());
         var name = request.getName();
@@ -122,8 +149,14 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
         LOGGER.info("Uploading {}...", name);
 
         try {
-            if (request.getId() != null && !request.getId().isBlank()) {
-                var dataOptional = sheetIO.downloadFile(request.getId());
+            var localPathString = request.getLocalPath();
+            var localFile = localPathString == null ? null : new File(localPathString);
+            var cloneId = request.getId();
+
+            if (cloneId != null && !cloneId.isBlank()) {
+                LOGGER.info("Cloning file");
+
+                var dataOptional = sheetIO.downloadFile(cloneId);
                 if (dataOptional.isPresent()) {
                     var fileData = dataOptional.get();
                     var data = fileData.getIn();
@@ -133,7 +166,7 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
 
                     var uploaded = sheetIO.uploadDataFile(name, path, fileSize, request.getSheetSize(), request.getCompression(), request.getUpload(), data);
 
-                    LOGGER.info("Uploaded {} in {}ms", uploaded.getId(), System.currentTimeMillis() - start);
+                    LOGGER.info("Uploaded cloned file {} in {}ms", uploaded.getId(), System.currentTimeMillis() - start);
 
                     sheetIO.createFolder(path);
 
@@ -142,9 +175,25 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
                             .build());
 
                     response.onCompleted();
-
                     return;
                 }
+            } else if (localFile != null && !localPathString.isBlank() && localFile.exists()) {
+                LOGGER.info("Uploading local file");
+
+                long start = System.currentTimeMillis();
+
+                var uploaded = sheetIO.uploadDataFile(name, path, localFile.length(), request.getSheetSize(), request.getCompression(), request.getUpload(), new FileInputStream(localFile));
+
+                LOGGER.info("Uploaded local file \"{}\" in {}ms", localPathString, System.currentTimeMillis() - start);
+
+                sheetIO.createFolder(path);
+
+                response.onNext(UploadResponse.newBuilder()
+                        .setItem(getListItem(uploaded))
+                        .build());
+
+                response.onCompleted();
+                return;
             }
 
             var processor = new Processor(request.getProcessingId(), request.getSheetSize(), file -> {
@@ -221,7 +270,8 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
 
     @Override
     public void downloadFile(DownloadRequest request, StreamObserver<DownloadResponse> response) {
-        useToken(request.getToken());
+        var sheetManager = getSheetManager(request, response);
+        var sheetIO = sheetManager.getSheetIO();
 
         try {
             var id = request.getId();
@@ -276,7 +326,8 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
 
     @Override
     public void removeFile(RemoveRequest request, StreamObserver<RemoveResponse> response) {
-        useToken(request.getToken());
+        var sheetManager = getSheetManager(request, response);
+        var sheetIO = sheetManager.getSheetIO();
 
         try {
             sheetIO.deleteData(request.getId(), false, request.getPermanent());
@@ -291,6 +342,9 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
 
     @Override
     public void restoreFile(RestoreRequest request, StreamObserver<RestoreResponse> response) {
+        var sheetManager = getSheetManager(request, response);
+        var sheetIO = sheetManager.getSheetIO();
+
         try {
             sheetIO.restoreData(request.getId());
 
@@ -303,18 +357,9 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
     }
 
     @Override
-    public void executeCode(CodeExecutionRequest request, StreamObserver<CodeExecutionResponse> response) {
-        holySheet.getjShellRemote().queueRequest(request, response);
-    }
-
-    @Override
-    public void listenCallbacks(ListenCallbacksRequest request, StreamObserver<CodeExecutionCallbackResponse> response) {
-        this.response = response;
-    }
-
-    @Override
     public void starRequest(StarRequest request, StreamObserver<StarResponse> response) {
-        useToken(request.getToken());
+        var sheetManager = getSheetManager(request, response);
+        var sheetIO = sheetManager.getSheetIO();
 
         try {
             sheetIO.setStarred(request.getId(), request.getStarred());
@@ -328,7 +373,8 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
 
     @Override
     public void moveFile(MoveFileRequest request, StreamObserver<MoveFileResponse> response) {
-        useToken(request.getToken());
+        var sheetManager = getSheetManager(request, response);
+        var sheetIO = sheetManager.getSheetIO();
 
         try {
             sheetIO.setPath(request.getId(), request.getPath());
@@ -342,7 +388,8 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
 
     @Override
     public void createFolder(CreateFolderRequest request, StreamObserver<FolderResponse> response) {
-        useToken(request.getToken());
+        var sheetManager = getSheetManager(request, response);
+        var sheetIO = sheetManager.getSheetIO();
 
         try {
             sheetIO.createFolder(request.getPath());
@@ -356,7 +403,8 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
 
     @Override
     public void renameFile(RenameRequest request, StreamObserver<RenameResponse> response) {
-        useToken(request.getToken());
+        var sheetManager = getSheetManager(request, response);
+        var sheetIO = sheetManager.getSheetIO();
 
         try {
             var file = sheetManager.getFile(request.getId());
@@ -375,12 +423,6 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
         }
     }
 
-    public void acceptCallback(CodeExecutionCallbackResponse callbackResponse) {
-        if (response != null) {
-            response.onNext(callbackResponse);
-        }
-    }
-
     ListItem getListItem(com.google.api.services.drive.model.File file) {
         var owner = file.getOwners().get(0);
         return ListItem.newBuilder()
@@ -396,5 +438,11 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
                 .setStarred(CommandHandler.isStarred(file))
                 .setTrashed(file.getTrashed())
                 .build();
+    }
+}
+
+class AuthException extends RuntimeException {
+    public AuthException(String message) {
+        super(message);
     }
 }

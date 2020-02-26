@@ -1,10 +1,7 @@
 package com.uddernetworks.holysheet;
 
-import com.google.api.services.drive.Drive;
-import com.google.api.services.sheets.v4.Sheets;
 import com.uddernetworks.holysheet.command.CommandHandler;
 import com.uddernetworks.holysheet.grpc.GRPCClient;
-import com.uddernetworks.holysheet.jshell.JShellRemote;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import picocli.CommandLine;
@@ -17,7 +14,6 @@ public class HolySheet {
 
     private LocalAuthManager authManager;
     private GRPCClient grpcClient;
-    private JShellRemote jShellRemote;
 //    private Drive drive;
 //    private Sheets sheets;
 
@@ -41,15 +37,13 @@ public class HolySheet {
         try {
             LOGGER.info("Initializing everything...");
 
-            grpcClient = new GRPCClient(this);
 
             if (credentialPath != null) {
                 authManager = new LocalAuthManager(credentialPath);
                 authManager.initialize();
-
-                // TODO: Will probably cause problems. Need to just remove this sometime.
-                jShellRemote = new JShellRemote(grpcClient);
             }
+
+            grpcClient = new GRPCClient(authManager);
         } catch (GeneralSecurityException | IOException e) {
             LOGGER.error("Error initializing", e);
         }
@@ -61,10 +55,5 @@ public class HolySheet {
 
     public GRPCClient getGrpcClient() {
         return grpcClient;
-    }
-
-    @Deprecated
-    public JShellRemote getjShellRemote() {
-        return jShellRemote;
     }
 }

@@ -34,7 +34,7 @@ import static com.uddernetworks.grpc.HolysheetService.UploadRequest.Upload.MULTI
 import static com.uddernetworks.holysheet.utility.Utility.humanReadableByteCountSI;
 
 @CommandLine.Command(name = "example", mixinStandardHelpOptions = true, version = "DriveStore 1.0.0", customSynopsis = {
-        "([-cm] -u=<file>... | [-cm] -e=<id> | -d=<name/id>... |  -r=<name/id>...) [-agphlV]"
+        "([-cm] -u=<file>... | [-cm] -e=<id> | -d=<name/id>... |  -r=<name/id>...) [-agphlzV]"
 })
 public class CommandHandler implements Runnable {
 
@@ -51,6 +51,9 @@ public class CommandHandler implements Runnable {
 
     @Option(names = {"-a", "--credentials"}, description = "The (absolute or relative) location of your personal credentials.json file. If no file extension is found, it is assumed to be an environment variable")
     String credentials = "credentials.json";
+
+    @Option(names = {"-z", "--local-auth"}, description = "If the authentication should take place on the local machine")
+    boolean localAuth;
 
     @Option(names = {"-g", "--grpc"}, description = "Starts the gRPC server on the given port, used to interface with other apps")
     int grpc = -1;
@@ -91,12 +94,10 @@ public class CommandHandler implements Runnable {
         suicideForParent(parent);
 
         if (grpc > 0) {
-            holySheet.init();
+            holySheet.init(localAuth ? credentials : null);
             holySheet.getGrpcClient().start(grpc);
             return;
         }
-
-        holySheet.getjShellRemote().start();
 
         holySheet.init(credentials);
         var authManager = holySheet.getAuthManager();

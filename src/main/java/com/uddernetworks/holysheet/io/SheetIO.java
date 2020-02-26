@@ -408,8 +408,6 @@ public class SheetIO {
             }
         }
 
-        LOGGER.info("Removing {}...", file.getName());
-
         if (permanent) {
             drive.files().delete(id).execute();
         } else {
@@ -421,8 +419,6 @@ public class SheetIO {
                 drive.files().update(id, temp).execute();
             }
         }
-
-        LOGGER.info("Removed successfully");
     }
 
     public void restoreData(String id) throws IOException {
