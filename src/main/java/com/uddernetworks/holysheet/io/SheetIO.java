@@ -339,7 +339,7 @@ public class SheetIO {
     }
 
     public String cleanPath(String path) {
-        if (path.isBlank() || !PATH_REGEX.reset(path).matches()) {
+        if (path.isBlank() || !PATH_REGEX.matcher(path).matches()) {
             path = "/";
         }
 

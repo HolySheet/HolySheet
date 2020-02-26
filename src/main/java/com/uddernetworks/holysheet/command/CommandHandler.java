@@ -28,7 +28,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -43,7 +42,7 @@ public class CommandHandler implements Runnable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CommandHandler.class);
     public static final DateFormat DATE_FORMAT = new SimpleDateFormat("MM-dd-yyyy");
-    public static final Matcher ID_PATTERN = Pattern.compile("([a-zA-Z0-9-_]+)").matcher("");
+    public static final Pattern ID_PATTERN = Pattern.compile("([a-zA-Z0-9-_]+)");
 
     private final HolySheet holySheet;
     private SheetManager sheetManager;
@@ -76,13 +75,13 @@ public class CommandHandler implements Runnable {
 
     static class RequiresParam {
 
-        @Option(names = {"-d", "--download"}, arity = "1..*", description = "Download the remote file", paramLabel = "<name>")
+        @Option(names = {"-d", "--download"}, arity = "1..*", description = "Download the remote file", paramLabel = "<id/name>")
         String[] download;
 
-        @Option(names = {"-r", "--remove"}, arity = "1..*", description = "Permanently removes the remote file", paramLabel = "<id>")
+        @Option(names = {"-r", "--remove"}, arity = "1..*", description = "Permanently removes the remote file", paramLabel = "<id/name>")
         List<String> remove;
 
-        @Option(names = {"-e", "--clone"}, arity = "1..*", description = "Clones the remote file ID to Google Sheets", paramLabel = "<id>")
+        @Option(names = {"-e", "--clone"}, arity = "1..*", description = "Clones the remote file ID to Google Sheets", paramLabel = "<id/name>")
         List<String> clone;
 
         @Option(names = {"-u", "--upload"}, arity = "1..*", description = "Upload the local file", paramLabel = "<file>")
@@ -200,14 +199,14 @@ public class CommandHandler implements Runnable {
 
     private CompletableFuture<Void> downloadIdName(String idName) {
         try {
-            if (!ID_PATTERN.reset(idName).matches()) {
+            if (!ID_PATTERN.matcher(idName).matches()) {
                 idName = sheetManager.getIdOfName(idName).orElse(idName);
             }
 
             long start = System.currentTimeMillis();
             var sheet = sheetManager.getFile(idName);
 
-            if (sheet == null) {
+            if (sheet == null) { // probably won't return null, will just throw
                 LOGGER.info("Couldn't find file with id/name of {}", idName);
                 return CompletableFuture.completedFuture(null);
             }
@@ -225,7 +224,7 @@ public class CommandHandler implements Runnable {
     private void remove() {
         param.remove.forEach(idName -> {
             try {
-                if (!ID_PATTERN.reset(idName).matches()) {
+                if (!ID_PATTERN.matcher(idName).matches()) {
                     idName = sheetManager.getIdOfName(idName).orElse(idName);
                 }
 
@@ -238,8 +237,9 @@ public class CommandHandler implements Runnable {
 
     private void cloneFiles() {
         for (String idName : param.clone) {
-            if (!ID_PATTERN.reset(idName).matches()) {
-                idName = sheetManager.getIdOfName(idName).orElse(idName);
+            if (!ID_PATTERN.matcher(idName).matches()) {
+                idName = sheetManager.getIdOfName(idName, false).orElse(idName);
+                // false parameter - as it's not a sheet! cloning google drive documents.
             }
 
             var method = compression ? ZIP : NONE;

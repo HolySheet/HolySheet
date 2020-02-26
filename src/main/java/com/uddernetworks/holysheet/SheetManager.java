@@ -17,7 +17,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -28,7 +27,7 @@ public class SheetManager {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SheetManager.class);
 
-    public static final Matcher PATH_REGEX = Pattern.compile("^\\/([\\w-]+?(\\/[\\w-]+?){0,1})*\\/$").matcher("");
+    public static final Pattern PATH_REGEX = Pattern.compile("^\\/([\\w-]+?(\\/[\\w-]+?){0,1})*\\/$");
 
     private final Drive drive;
     private final Sheets sheets;
@@ -50,11 +49,32 @@ public class SheetManager {
         return drive.files().get(id).setFields(fields).execute();
     }
 
+    /**
+     * Return the id of a google drive file matching the given name, not necessarily inside the sheetStore folder.
+     *
+     * @param name The name to match.
+     * @return {@link Optional} wrapping the {@link String} name.
+     */
     public Optional<String> getIdOfName(String name) {
-        try {
-            final String query = "parents in '" + getSheetStore().getId() + "' and name contains '" + name.replace("'", "") + "'";
-            var files = getFiles(1, query, Mime.FOLDER);
+        return getIdOfName(name, true);
+    }
 
+    /**
+     * Return the id of a google drive file matching the given name.
+     *
+     * @param name         The name to match.
+     * @param inSheetStore Whether this file must be in the sheetStore folder.
+     * @return {@link Optional} wrapping the {@link String} name.
+     */
+    public Optional<String> getIdOfName(String name, boolean inSheetStore) {
+        try {
+            var query = "name contains '" + name.replace("'", "") + "'";
+
+            if (inSheetStore) {
+                query = "parents in '" + getSheetStore().getId() + "' and " + query;
+            }
+
+            var files = getFiles(1, query, Mime.FOLDER);
             return getCollectionFirst(files).map(File::getId);
         } catch (IOException e) {
             return Optional.empty();
@@ -67,7 +87,7 @@ public class SheetManager {
 
     public List<File> listUploads(String path, boolean starred, boolean trashed) {
         try {
-            if (path.isBlank() || !PATH_REGEX.reset(path).matches()) {
+            if (path.isBlank() || !PATH_REGEX.matcher(path).matches()) {
                 path = "/";
             }
 
