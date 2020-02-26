@@ -20,6 +20,8 @@ import com.uddernetworks.grpc.HolysheetService.MoveFileRequest;
 import com.uddernetworks.grpc.HolysheetService.MoveFileResponse;
 import com.uddernetworks.grpc.HolysheetService.RemoveRequest;
 import com.uddernetworks.grpc.HolysheetService.RemoveResponse;
+import com.uddernetworks.grpc.HolysheetService.RenameRequest;
+import com.uddernetworks.grpc.HolysheetService.RenameResponse;
 import com.uddernetworks.grpc.HolysheetService.RestoreRequest;
 import com.uddernetworks.grpc.HolysheetService.RestoreResponse;
 import com.uddernetworks.grpc.HolysheetService.StarRequest;
@@ -348,6 +350,27 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
             response.onCompleted();
         } catch (IOException e) {
             LOGGER.error("An error has occurred while creating folder \"" + request.getPath() + "\"", e);
+            response.onError(e);
+        }
+    }
+
+    @Override
+    public void renameFile(RenameRequest request, StreamObserver<RenameResponse> response) {
+        useToken(request.getToken());
+
+        try {
+            var file = sheetManager.getFile(request.getId());
+
+            if (file == null) {
+                response.onError(new FileNotFoundException("No file could be found with the given ID \"" + request.getId() + "\""));
+                return;
+            }
+
+            sheetIO.renameFile(file, request.getName());
+            response.onNext(RenameResponse.newBuilder().build());
+            response.onCompleted();
+        } catch (IOException e) {
+            LOGGER.error("An error has occurred while renaming file \"" + request.getId() + "\" to \"" + request.getName() + "\"", e);
             response.onError(e);
         }
     }

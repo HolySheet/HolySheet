@@ -486,6 +486,12 @@ public class SheetIO {
         }
     }
 
+    public void renameFile(File file, String name) throws IOException {
+        var meta = new File();
+        meta.setName(name);
+        drive.files().update(file.getId(), meta).setFields("id, name").execute();
+    }
+
     public static class FileData {
         private final File file;
         private final long size;

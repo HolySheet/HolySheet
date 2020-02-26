@@ -169,6 +169,15 @@ message MoveFileRequest {
 message MoveFileResponse {
 }
 
+message RenameRequest {
+    string token = 1; // The Google authentication token
+    string id = 2; // The Sheets-generated ID of the file to download
+    string name = 3; // The new name of the file
+}
+
+message RenameResponse {
+}
+
 service HolySheetService {
 
     // Lists files with an optional path
@@ -204,4 +213,6 @@ service HolySheetService {
 
     // Moves a file from one path to another
     rpc moveFile(MoveFileRequest) returns (MoveFileResponse);
+
+    rpc renameFile(RenameRequest) returns (RenameResponse);
 }
