@@ -34,6 +34,7 @@ jobs:
           name: rubbaboy/hs
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
-          snapshot: true
           dockerfile: Dockerfile
           tags: "${{ steps.get_branch.outputs.branch }}-${{ steps.get_hash.outputs.hash }}"
+      - name: Repository published
+        run: echo "docker pull rubbaboy/hs:${{ steps.get_branch.outputs.branch }}-${{ steps.get_hash.outputs.hash }}"
