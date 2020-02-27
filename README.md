@@ -9,7 +9,8 @@
   <a href="https://github.com/HolySheet/HolySheet/blob/master/LICENSE.txt"><img src="https://img.shields.io/github/license/HolySheet/HolySheet.svg" alt="License"/></a>
   <a href="https://github.com/HolySheet/HolySheet/actions?query=workflow%3A%22Docker+Build%22"><img src="https://github.com/HolySheet/HolySheetWebserver/workflows/Docker%20Build/badge.svg" alt="Docker Build"/></a>
   <a href="https://hub.docker.com/layers/rubbaboy/hs"><img src="https://img.shields.io/docker/pulls/rubbaboy/testback" alt="Docker Pulls"/></a>
-  <a href="https://hub.docker.com/repository/docker/rubbaboy/hs"><img src="https://img.shields.io/endpoint?url=https://holysheet.net/shields/holysheet/web-dev.json" alt="Master Docker"/></a>
+  <a href="https://hub.docker.com/repository/docker/rubbaboy/hs"><img src="https://img.shields.io/endpoint?url=https://holysheet.net/shields/holysheet/web-dev.json" alt="HS web-dev docker"/></a>
+  <a href="https://hub.docker.com/repository/docker/rubbaboy/testback"><img src="https://img.shields.io/endpoint?url=https://holysheet.net/shields/holysheetwebserver/master.json" alt="testback master docker"/></a>
 </p>
 
 HolySheet is a program that allows you to store arbitrary files onto Google Sheets, which does not lower storage quota on Google Drive. This is inspired by [uds](https://github.com/stewartmcgown/uds), however it can only store ~710KB of data per doc due to the use of Base64 and Docs limitations, and only has CLI usage.
