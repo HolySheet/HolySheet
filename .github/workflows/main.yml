@@ -26,7 +26,7 @@ jobs:
         id: get_branch
       - name: Get commit hash
         shell: bash
-        run: echo "##[set-output name=hash;]$(echo $(git rev-parse --short "$GITHUB_SHA") | cut -c1-8)"
+        run: echo "##[set-output name=hash;]$(echo $(git rev-parse --short "$GITHUB_SHA") | cut -c1-6)"
         id: get_hash
       - name: Publish to Registry
         uses: elgohr/Publish-Docker-Github-Action@master
@@ -35,6 +35,17 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
           dockerfile: Dockerfile
-          tags: "${{ steps.get_branch.outputs.branch }}-${{ steps.get_hash.outputs.hash }}"
+          tags: "${{ steps.get_branch.outputs.branch }}-latest,${{ steps.get_branch.outputs.branch }}-${{ steps.get_hash.outputs.hash }}"
       - name: Repository published
         run: echo "docker pull rubbaboy/hs:${{ steps.get_branch.outputs.branch }}-${{ steps.get_hash.outputs.hash }}"
+      - name: Create docker shield
+        run: |-
+          mkdir shields/holysheet && echo "{ \"schemaVersion\": 1, \"label\": \"docker\", \"message\": \"rubbaboy/hs:${{ steps.get_branch.outputs.branch }}-${{ steps.get_hash.outputs.hash }}\", \"color\": \"#0576b7\" }" >> "shields/holysheet/${{ steps.get_branch.outputs.branch }}"
+      - name: FTP-Deploy-Action
+        uses: SamKirkland/FTP-Deploy-Action@2.0.0
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USER }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          LOCAL_DIR: shields
+          REMOTE_DIR: /var/www/holysheet.net/public_html/shields

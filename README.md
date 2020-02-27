@@ -9,6 +9,7 @@
   <a href="https://github.com/HolySheet/HolySheet/blob/master/LICENSE.txt"><img src="https://img.shields.io/github/license/HolySheet/HolySheet.svg" alt="License"/></a>
   <a href="https://github.com/HolySheet/HolySheet/actions?query=workflow%3A%22Docker+Build%22"><img src="https://github.com/HolySheet/HolySheetWebserver/workflows/Docker%20Build/badge.svg" alt="Docker Build"/></a>
   <a href="https://hub.docker.com/layers/rubbaboy/hs"><img src="https://img.shields.io/docker/pulls/rubbaboy/testback" alt="Docker Pulls"/></a>
+  <a href="https://hub.docker.com/repository/docker/rubbaboy/hs"><img src="https://img.shields.io/endpoint?url=https://holysheet.net/shields/holysheet/web-dev.json" alt="Master Docker"/></a>
 </p>
 
 HolySheet is a program that allows you to store arbitrary files onto Google Sheets, which does not lower storage quota on Google Drive. This is inspired by [uds](https://github.com/stewartmcgown/uds), however it can only store ~710KB of data per doc due to the use of Base64 and Docs limitations, and only has CLI usage.
@@ -85,4 +86,36 @@ The following is a video of the Installation and usage of SheetyGUI. For just a 
 [![HolySheet Installation/Demo](screenshots/Thumbnail.png)](https://youtu.be/W3wyBj26rsg)
 
 https://youtu.be/W3wyBj26rsg
+
+## Kubernetes
+
+To add the HolySheet API to your kubernetes cluster, simply run the following command
+
+```bash
+$ curl -sL http://holysheet.net/bash/deploy.sh -o deploy && chmod +x deploy && ./deploy 1 master-latest master-latest
+```
+
+To update any containers or replica count, you can run the command below.
+
+```bash
+$ ./deploy 1 master-latest master-latest
+```
+
+
+
+ The parameters are:
+
+| Value         | Description                                               |
+| ------------- | --------------------------------------------------------- |
+| 1             | The amount of replicas/pods to create of the application. |
+| master-latest | The docker version* of the HolySheetWebserver image       |
+| master-latest | The docker version* of the HolySheet image                |
+
+\* The docker versions are updated every commit. They are in the format of:
+
+```
+[branch]-[5 characters of hash]
+```
+
+The hash may also be replaced with `latest`. It is suggested to use `master` and a specific commit hash if going into production, as the API being changed without the webserver frontend being updated may cause issues. Examples of image hashes: `master-latest`, `web-dev-6f17c`, `master-6bf0a`.
 
