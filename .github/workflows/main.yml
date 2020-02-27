@@ -40,7 +40,7 @@ jobs:
         run: echo "docker pull rubbaboy/hs:${{ steps.get_branch.outputs.branch }}-${{ steps.get_hash.outputs.hash }}"
       - name: Create docker shield
         run: |-
-          mkdir shields/holysheet && echo "{ \"schemaVersion\": 1, \"label\": \"docker\", \"message\": \"rubbaboy/hs:${{ steps.get_branch.outputs.branch }}-${{ steps.get_hash.outputs.hash }}\", \"color\": \"#0576b7\" }" >> "shields/holysheet/${{ steps.get_branch.outputs.branch }}"
+          mkdir -p shields/holysheet && echo "{ \"schemaVersion\": 1, \"label\": \"docker\", \"message\": \"rubbaboy/hs:${{ steps.get_branch.outputs.branch }}-${{ steps.get_hash.outputs.hash }}\", \"color\": \"#0576b7\" }" >> "shields/holysheet/${{ steps.get_branch.outputs.branch }}.json"
       - name: FTP-Deploy-Action
         uses: SamKirkland/FTP-Deploy-Action@2.0.0
         env:
