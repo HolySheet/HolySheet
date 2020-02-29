@@ -37,12 +37,13 @@ public class HolySheet {
         try {
             LOGGER.info("Initializing everything...");
 
-            grpcClient = new GRPCClient(this);
 
             if (credentialPath != null) {
                 authManager = new LocalAuthManager(credentialPath);
                 authManager.initialize();
             }
+
+            grpcClient = new GRPCClient(authManager);
         } catch (GeneralSecurityException | IOException e) {
             LOGGER.error("Error initializing", e);
         }

@@ -17,14 +17,6 @@ message ListItem {
     bool trashed = 12;
 }
 
-// Used in code execution, to hold data of a variable
-message SerializedVariable {
-    string name = 1; // Name of the variable
-    string type = 2; // The Java class type
-    string object = 3; // JSON Serialized data
-}
-
-
 message ListRequest {
     string token = 1; // The Google authentication token
     string path = 2; // The remote drive path to list
@@ -39,7 +31,7 @@ message ListResponse {
 
 message UploadRequest {
     string token = 1; // The Google authentication token
-    string path = 2; // The absolute path of the upload
+    string path = 2; // The absolute Google Drive path of the upload
     string name = 3; // The name of the file, to not rely on path name
     string id = 4; // The file ID, if cloning
     Upload upload = 5; // The upload type
@@ -47,6 +39,8 @@ message UploadRequest {
     int64 sheetSize = 7; // The maximum size (in bytes) each sheet can be
     int64 fileSize = 8;
     string processingId = 9; // The untrimmed unique processing UUID
+    string localPath = 10; // Instead of creating a processor and accepting chunks via gRPC, it uploads this absolute
+    // file path in chunks. This is should only be used for local uploads, and is normally null.
 
     enum Upload {
         MULTIPART = 0;
@@ -130,27 +124,6 @@ message RestoreRequest {
 message RestoreResponse {
 }
 
-message CodeExecutionRequest {
-    string code = 1; // A snippet of Java code, exactly one complete snippet of source code, that is, one expression,
-    // statement, variable declaration, method declaration, class declaration, or import. - JShell. Invoked on the server
-
-    repeated string returnVariables = 2; // A list of extra variables to return in the response
-}
-
-message CodeExecutionResponse {
-    repeated string snippetResult = 1; // A list of implicit or explicitly created variables in the snippet
-    repeated SerializedVariable variables = 2; // A list of variables listed in the request via returnVariables, and in this response via snippetResult
-}
-
-message CodeExecutionCallbackResponse {
-    string callbackState = 1; // An untrimmed UUID (Set in the code) to identify the callback
-    repeated string snippetResult = 2; // A list of variable names passed to the callback, sent by the client
-    repeated SerializedVariable variables = 3; // A list of all variables listed in the snippetResult
-}
-
-message ListenCallbacksRequest {
-}
-
 message StarRequest {
     string token = 1; // The Google authentication token
     string id = 2; // The Sheets-generated ID of the file to download
@@ -169,6 +142,15 @@ message MoveFileRequest {
 message MoveFileResponse {
 }
 
+message RenameRequest {
+    string token = 1; // The Google authentication token
+    string id = 2; // The Sheets-generated ID of the file to download
+    string name = 3; // The new name of the file
+}
+
+message RenameResponse {
+}
+
 service HolySheetService {
 
     // Lists files with an optional path
@@ -181,8 +163,11 @@ service HolySheetService {
 
     rpc createFolder(CreateFolderRequest) returns (FolderResponse);
 
-    // Sends a file data stream to be processed to avoid filesystem IO
-    rpc sendFile (stream FileChunk) returns (stream ChunkResponse);
+    // Sends a file data stream to be processed to avoid filesystem IO.
+    // This does NOT have to provide authentication, as this should never be sent standalone
+    // and should provide the processingId which is identifying of the previous
+    // authenticated request.
+    rpc sendFile(stream FileChunk) returns (stream ChunkResponse);
 
     // Downloads a remote file
     rpc downloadFile(DownloadRequest) returns (stream DownloadResponse);
@@ -193,15 +178,12 @@ service HolySheetService {
     // Restores a trashed file
     rpc restoreFile(RestoreRequest) returns (RestoreResponse);
 
-    // Executes Java code on the server
-    rpc executeCode(CodeExecutionRequest) returns (CodeExecutionResponse);
-
-    // Should only be invoked once. Streams back all callbacks
-    rpc listenCallbacks(ListenCallbacksRequest) returns (stream CodeExecutionCallbackResponse);
-
     // Star a given file
     rpc starRequest(StarRequest) returns (StarResponse);
 
     // Moves a file from one path to another
     rpc moveFile(MoveFileRequest) returns (MoveFileResponse);
+
+    // Renames a given file to a new name
+    rpc renameFile(RenameRequest) returns (RenameResponse);
 }

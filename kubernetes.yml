@@ -19,7 +19,7 @@ spec:
           emptyDir: {}
       containers:
         - name: api
-          image: rubbaboy/testback:v1.2.7
+          image: rubbaboy/testback:latest
           volumeMounts:
             - name: processing
               mountPath: /tmp/processing
@@ -35,7 +35,7 @@ spec:
             - name: PROCESSING_PATH
               value: '/tmp/processing'
         - name: core
-          image: rubbaboy/hs:v1.2.8
+          image: rubbaboy/hs:latest
           volumeMounts:
             - name: processing
               mountPath: /tmp/processing

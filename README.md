@@ -1,21 +1,23 @@
 <h1 align="center">HolySheet</h1>
 <p align="center"><i>Store any file, of any size to Google Sheets</i></p>
 <hr><p align="center">
-  <a href="http://hits.dwyl.io/HolySheetOrg/HolySheet"><img alt="HitCount" src="http://hits.dwyl.io/HolySheetOrg/HolySheet.svg" /></a>
-  <img alt="Stars" src="https://img.shields.io/github/stars/HolySheetOrg/HolySheet.svg?label=Stars&style=flat" />
-  <a href="https://wakatime.com/badge/github/HolySheetOrg/HolySheet"><img alt="Time Tracker" src="https://wakatime.com/badge/github/HolySheetOrg/HolySheet.svg"/></a>
-  <a href="https://github.com/HolySheetOrg/HolySheet/issues"><img alt="GitHub issues" src="https://img.shields.io/github/issues/HolySheetOrg/HolySheet.svg"/></a>
-  <a href="https://github.com/HolySheetOrg/HolySheet/graphs/contributors"><img alt="GitHub contributors" src="https://img.shields.io/github/contributors/HolySheetOrg/HolySheet"></a>
-  <a href="https://github.com/HolySheetOrg/HolySheet/blob/master/LICENSE.txt"><img src="https://img.shields.io/github/license/HolySheetOrg/HolySheet.svg" alt="License"/></a>
-  <a href="https://github.com/HolySheetOrg/HolySheet/actions?query=workflow%3A%22Docker+Build%22"><img src="https://github.com/HolySheetOrg/HolySheetWebserver/workflows/Docker%20Build/badge.svg" alt="Docker Build"/></a>
+  <a href="http://hits.dwyl.io/HolySheet/HolySheet"><img alt="HitCount" src="http://hits.dwyl.io/HolySheet/HolySheet.svg" /></a>
+  <img alt="Stars" src="https://img.shields.io/github/stars/HolySheet/HolySheet.svg?label=Stars&style=flat" />
+  <a href="https://wakatime.com/badge/github/HolySheet/HolySheet"><img alt="Time Tracker" src="https://wakatime.com/badge/github/HolySheet/HolySheet.svg"/></a>
+  <a href="https://github.com/HolySheet/HolySheet/issues"><img alt="GitHub issues" src="https://img.shields.io/github/issues/HolySheet/HolySheet.svg"/></a>
+  <a href="https://github.com/HolySheet/HolySheet/graphs/contributors"><img alt="GitHub contributors" src="https://img.shields.io/github/contributors/HolySheet/HolySheet"></a>
+  <a href="https://github.com/HolySheet/HolySheet/blob/master/LICENSE.txt"><img src="https://img.shields.io/github/license/HolySheet/HolySheet.svg" alt="License"/></a>
+  <a href="https://github.com/HolySheet/HolySheet/actions?query=workflow%3A%22Docker+Build%22"><img src="https://github.com/HolySheet/HolySheetWebserver/workflows/Docker%20Build/badge.svg" alt="Docker Build"/></a>
   <a href="https://hub.docker.com/layers/rubbaboy/hs"><img src="https://img.shields.io/docker/pulls/rubbaboy/testback" alt="Docker Pulls"/></a>
+  <a href="https://hub.docker.com/repository/docker/rubbaboy/hs"><img src="https://img.shields.io/endpoint?url=https://holysheet.net/shields/holysheet/web-dev.json" alt="HS web-dev docker"/></a>
+  <a href="https://hub.docker.com/repository/docker/rubbaboy/testback"><img src="https://img.shields.io/endpoint?url=https://holysheet.net/shields/holysheetwebserver/master.json" alt="testback master docker"/></a>
 </p>
 
 HolySheet is a program that allows you to store arbitrary files onto Google Sheets, which does not lower storage quota on Google Drive. This is inspired by [uds](https://github.com/stewartmcgown/uds), however it can only store ~710KB of data per doc due to the use of Base64 and Docs limitations, and only has CLI usage.
 
 HolySheet uses Google Sheets, which has an undocumented maximum 25.9MB* of data capacity in my less-than-professional testing. A modified Base91 algorithm is also used to efficiently convert arbitrary files into text to work with Sheets. Compression to Zip is also offered, with other compression methods planned.
 
-For the official GUI application, see [SheetyGUI](https://github.com/RubbaBoy/SheetyGUI).
+For the official GUI application, see [SheetyGUI](https://github.com/HolySheet/SheetyGUI).
 
 *\* This could be more, it arbitrarily throws 500 ISE's at upload requests with more (A more stable and recommended number is 10MB)*
 
@@ -24,7 +26,7 @@ For the official GUI application, see [SheetyGUI](https://github.com/RubbaBoy/Sh
 - Google Sheets do not affect Drive quota
 - Google Sheets allow for (an undocumented) 10+MB per sheet
 - Base91 turns files into text with ~22% overhead
-- A [JSON protocol](https://github.com/RubbaBoy/HolySheet/blob/master/InterfaceProtocol.md) allows for separated GUI, or other program interfacing
+- The use of gRPC allows for separated GUI, or other program interfacing in any language
 
 ## Installing
 
@@ -85,4 +87,36 @@ The following is a video of the Installation and usage of SheetyGUI. For just a 
 [![HolySheet Installation/Demo](screenshots/Thumbnail.png)](https://youtu.be/W3wyBj26rsg)
 
 https://youtu.be/W3wyBj26rsg
+
+## Kubernetes
+
+To add the HolySheet API to your kubernetes cluster, simply run the following command
+
+```bash
+$ curl -sL http://holysheet.net/bash/deploy.sh -o deploy && chmod +x deploy && ./deploy 1 master-latest master-latest
+```
+
+To update any containers or replica count, you can run the command below.
+
+```bash
+$ ./deploy 1 master-latest master-latest
+```
+
+
+
+ The parameters are:
+
+| Value         | Description                                               |
+| ------------- | --------------------------------------------------------- |
+| 1             | The amount of replicas/pods to create of the application. |
+| master-latest | The docker version* of the HolySheetWebserver image       |
+| master-latest | The docker version* of the HolySheet image                |
+
+\* The docker versions are updated every commit. They are in the format of:
+
+```
+[branch]-[5 characters of hash]
+```
+
+The hash may also be replaced with `latest`. It is suggested to use `master` and a specific commit hash if going into production, as the API being changed without the webserver frontend being updated may cause issues. Examples of image hashes: `master-latest`, `web-dev-6f17c`, `master-6bf0a`.
 

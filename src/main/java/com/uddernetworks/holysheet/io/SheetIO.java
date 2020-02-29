@@ -457,8 +457,6 @@ public class SheetIO {
             }
         }
 
-        LOGGER.info("Removing {}...", file.getName());
-
         if (permanent) {
             drive.files().delete(id).execute();
         } else {
@@ -470,8 +468,6 @@ public class SheetIO {
                 drive.files().update(id, temp).execute();
             }
         }
-
-        LOGGER.info("Removed successfully");
     }
 
     public void restoreData(String id) throws IOException {
@@ -542,6 +538,12 @@ public class SheetIO {
             LOGGER.error("An error occurred while downloading the file " + fileId, e);
             return Optional.empty();
         }
+    }
+
+    public void renameFile(File file, String name) throws IOException {
+        var meta = new File();
+        meta.setName(name);
+        drive.files().update(file.getId(), meta).setFields("id, name").execute();
     }
 
     public static class FileData {
