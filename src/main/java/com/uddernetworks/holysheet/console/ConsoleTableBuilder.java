@@ -41,7 +41,7 @@ public class ConsoleTableBuilder {
         });
         builder.append("\n").append(temp).append("\n");
 
-        if (total != null && total.size() == rows.get(0).size()) {
+        if (total != null && rows.size() > 0 && total.size() == rows.get(0).size()) {
             rows = new ArrayList<>(rows);
             rows.addAll(Arrays.asList(null, total));
         }

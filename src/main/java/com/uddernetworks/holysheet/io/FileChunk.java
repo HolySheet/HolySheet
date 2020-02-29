@@ -16,6 +16,11 @@ public class FileChunk {
         this.index = index;
     }
 
+    /**
+     * Return a Map with the chunk's properties: index, size. All values are
+     * {@link String}s.
+     * @return immutable map implementation with the keys index and size.
+     */
     public Map<String, String> getProperties() {
         return Map.of(
                 "index", String.valueOf(index),

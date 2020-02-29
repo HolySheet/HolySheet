@@ -59,14 +59,31 @@ public class SheetIO {
         this.sheets = sheets;
     }
 
-    public CompletableFuture<File> downloadData(java.io.File file, String id) {
-        return downloadData(file, id, $ -> {});
+    /**
+     * Download and uncompress a file stored by holysheet.
+     *
+     * @param destination  Destination {@link java.io.File} to store the downloaded file in on the local system.
+     * @param id           The id of the folder storing the chunks; i.e. the id of the file's parent folder.
+     * @return {@link CompletableFuture} downloaded and uncompressed file.
+     */
+    public CompletableFuture<File> downloadData(java.io.File destination, String id) {
+        return downloadData(destination, id, $ -> {
+        });
     }
 
+    /**
+     * Download and uncompress a file stored by holysheet.
+     *
+     * @param destination  Destination {@link java.io.File} to store the downloaded file in on the local system.
+     * @param id           The id of the folder storing the chunks; i.e. the id of the file's parent folder.
+     * @param statusUpdate {@link Consumer} to be accepted when a chunk has been downloaded.
+     * @return {@link CompletableFuture} downloaded and uncompressed file.
+     */
     public CompletableFuture<File> downloadData(java.io.File destination, String id, Consumer<Double> statusUpdate) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                var parent = drive.files().get(id).setFields(DRIVE_FIELDS).execute();
+                var parent = sheetManager.getFile(id, DRIVE_FIELDS);
+
                 if (parent == null) {
                     throw new RuntimeException("Couldn't find id " + id);
                 }
@@ -90,8 +107,7 @@ public class SheetIO {
 
                 files.stream().sorted(Comparator.comparingInt(file -> {
                     var fp = file.getProperties();
-                    if (fp == null) return -1;
-                    return Integer.parseInt(fp.get("index"));
+                    return fp == null ? -1 : Integer.parseInt(fp.get("index"));
                 })).forEach(file -> {
                     downloadSheet(file, encodingOut);
                     statusUpdate.accept(downloadedIndex[0]++ / (double) files.size());
@@ -108,7 +124,6 @@ public class SheetIO {
                 }
 
                 LOGGER.info("Downloaded and unencoded {}", humanReadableByteCountSI(destination.length()));
-
                 return parent;
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
@@ -116,6 +131,14 @@ public class SheetIO {
         });
     }
 
+    /**
+     * Parse the compression property to a {@link Compression} enumeration.
+     * This will be changed when compression is implemented!! May return null
+     * if a number is passed and it's not 1 or 0. Implementation will be changed.
+     *
+     * @param compression Compression format as a string
+     * @return ZIP enumeration if the string is 'true' or 1, otherwise NONE if 'false' of 0.
+     */
     private Compression parseLegacyCompression(String compression) {
         if (compression.equals("true")) {
             return Compression.ZIP;
@@ -126,13 +149,29 @@ public class SheetIO {
         return Compression.forNumber(Utility.tryParse(compression, 0));
     }
 
+    /**
+     * Download a sheet from google drive, and write its bytes to the passed
+     * {@link OutputStream}.
+     *
+     * @param file {@link File} representing a sheet to download.
+     * @param out {@link OutputStream} to write to.
+     */
     private void downloadSheet(File file, OutputStream out) {
         try {
             var properties = file.getProperties();
-            LOGGER.info("Downloading sheet #{} - {}", properties.get("index"), humanReadableByteCountSI(Long.parseLong(properties.get("size"))));
-            var byteOutput = new ByteArrayOutputStream();
-            drive.files().export(file.getId(), "text/tab-separated-values").executeMediaAndDownloadTo(byteOutput);
-            out.write(byteOutput.toByteArray());
+            if (properties != null) {
+                var index = properties.get("index");
+                var size = humanReadableByteCountSI(Long.parseLong(properties.get("size")));
+
+                LOGGER.info("Downloading sheet#{} - {}", index, size);
+            } else {
+                LOGGER.info("Downloading sheet#unknown");
+            }
+
+            var byteOut = new ByteArrayOutputStream();
+            drive.files().export(file.getId(), "text/tab-separated-values").executeMediaAndDownloadTo(byteOut);
+
+            out.write(byteOut.toByteArray());
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
@@ -172,7 +211,7 @@ public class SheetIO {
             int delay = 1000;
             while (true) {
                 try {
-                    processChunk(new FileChunk(parent, bytes, index), parent, uploadType);
+                    processChunk(new FileChunk(parent, bytes, index), uploadType);
                     return;
                 } catch (Exception e) {
                     LOGGER.error("An exception occurred during the processing of file " + index, e);
@@ -225,7 +264,8 @@ public class SheetIO {
     public File uploadDataFile(String title, String path, long fileSize, long maxSheetSize, Compression compress, Upload uploadType, InputStream data, Consumer<Double> statusUpdate) throws IOException {
         path = cleanPath(path);
         if (statusUpdate == null) {
-            statusUpdate = $ -> {};
+            statusUpdate = $ -> {
+            };
         }
 
         var parent = sheetManager.createFolder(title, sheetManager.getSheetStore(), Map.of(
@@ -264,7 +304,7 @@ public class SheetIO {
             int delay = 1000;
             while (true) {
                 try {
-                    processChunk(new FileChunk(parent, bytes, index), parent, uploadType);
+                    processChunk(new FileChunk(parent, bytes, index), uploadType);
                     var percent = Math.max((index + 1) / ((double) estimatedChunks + 1), 1D);
                     if (!sentMax[0]) {
                         sentMax[0] = percent == 1D;
@@ -307,11 +347,20 @@ public class SheetIO {
         ));
     }
 
-    private File processChunk(FileChunk chunk, File parent, Upload uploadType) {
+    /**
+     * Upload a {@link FileChunk} to its parent folder - where the parent folder
+     * represents a file stored by holysheet.
+     *
+     * @param chunk {@link FileChunk} to upload.
+     * @param uploadType {@link Upload} enumeration.
+     * @return {@link File} google sheet chunk.
+     */
+    private File processChunk(FileChunk chunk, Upload uploadType) {
         try {
             LOGGER.info("Uploading chunk-{}", chunk.getIndex() + 1);
 
             var content = new ByteArrayContent("text/tab-separated-values", chunk.getBytes());
+            var parent = chunk.getParent();
             var request = drive.files().create(new File()
                     .setMimeType(Mime.SHEET.getMime())
                     .setName("chunk-" + chunk.getIndex())
@@ -446,6 +495,15 @@ public class SheetIO {
         LOGGER.info("Restored successfully");
     }
 
+    /**
+     * Downloads the google drive file with the provided {@code fileId}; and then
+     * uploads this to google drive stored as a holysheet file.
+     *
+     * I.e. clones a google drive file as a holysheet file.
+     * @param fileId File's id.
+     * @param maxSheetSize Maximum amount of sheets.
+     * @param compress Compression enumeration.
+     */
     public void cloneFile(String fileId, int maxSheetSize, Compression compress) {
         downloadFile(fileId).ifPresent(fileData -> {
             var file = fileData.getFile();
@@ -470,7 +528,7 @@ public class SheetIO {
      */
     public Optional<FileData> downloadFile(String fileId) {
         try {
-            var file = drive.files().get(fileId).execute();
+            var file = sheetManager.getFile(fileId);
 
             if (file == null) {
                 LOGGER.error("No file could be found with the given ID \"{}\"", fileId);
