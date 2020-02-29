@@ -439,10 +439,10 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
                 .setTrashed(file.getTrashed())
                 .build();
     }
-}
 
-class AuthException extends RuntimeException {
-    public AuthException(String message) {
-        super(message);
+    static class AuthException extends RuntimeException {
+        public AuthException(String message) {
+            super(message);
+        }
     }
 }
