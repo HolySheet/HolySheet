@@ -3,14 +3,25 @@
 <hr><p align="center">
   <a href="http://hits.dwyl.io/HolySheet/HolySheet"><img alt="HitCount" src="http://hits.dwyl.io/HolySheet/HolySheet.svg" /></a>
   <img alt="Stars" src="https://img.shields.io/github/stars/HolySheet/HolySheet.svg?label=Stars&style=flat" />
+  <img alt="Social Stars" src="https://img.shields.io/github/stars/HolySheet/HolySheet?style=social" />
+  <img alt="Watchers" src="https://img.shields.io/github/watchers/HolySheet/HolySheet?style=social" />
+  <img alt="Followers" src="https://img.shields.io/github/followers/RubbaBoy?style=social" />
   <a href="https://wakatime.com/badge/github/HolySheet/HolySheet"><img alt="Time Tracker" src="https://wakatime.com/badge/github/HolySheet/HolySheet.svg"/></a>
-  <a href="https://github.com/HolySheet/HolySheet/issues"><img alt="GitHub issues" src="https://img.shields.io/github/issues/HolySheet/HolySheet.svg"/></a>
+  <a href="https://github.com/HolySheet/HolySheet/issues"><img alt="GitHub issues" src="https://img.shields.io/github/issues/HolySheet/HolySheet"/></a>
+  <a href="https://github.com/HolySheet/HolySheet/issues"><img alt="GitHub closed issues" src="https://img.shields.io/github/issues-closed-raw/HolySheet/HolySheet"/></a>
+  <a href="https://github.com/HolySheet/HolySheet/pulls"><img alt="GitHub PRs" src="https://img.shields.io/github/issues-pr/HolySheet/HolySheet"/></a>
+  <a href="https://github.com/HolySheet/HolySheet/pulls"><img alt="GitHub closed PRs" src="https://img.shields.io/github/issues-pr-closed-raw/HolySheet/HolySheet"/></a>
+  <a href="https://github.com/HolySheet/HolySheet"><img alt="Last commit" src="https://img.shields.io/github/last-commit/HolySheet/HolySheet"/></a>
+  <a href="https://github.com/HolySheet/HolySheet"><img alt="Repo size" src="https://img.shields.io/github/repo-size/HolySheet/HolySheet"/></a>
+  <a href="https://github.com/HolySheet/HolySheet"><img alt="Repo code size" src="https://img.shields.io/github/languages/code-size/HolySheet/HolySheet"/></a>
   <a href="https://github.com/HolySheet/HolySheet/graphs/contributors"><img alt="GitHub contributors" src="https://img.shields.io/github/contributors/HolySheet/HolySheet"></a>
   <a href="https://github.com/HolySheet/HolySheet/blob/master/LICENSE.txt"><img src="https://img.shields.io/github/license/HolySheet/HolySheet.svg" alt="License"/></a>
   <a href="https://github.com/HolySheet/HolySheet/actions?query=workflow%3A%22Docker+Build%22"><img src="https://github.com/HolySheet/HolySheetWebserver/workflows/Docker%20Build/badge.svg" alt="Docker Build"/></a>
   <a href="https://hub.docker.com/layers/rubbaboy/hs"><img src="https://img.shields.io/docker/pulls/rubbaboy/testback" alt="Docker Pulls"/></a>
-  <a href="https://hub.docker.com/repository/docker/rubbaboy/hs"><img src="https://img.shields.io/endpoint?url=https://holysheet.net/shields/holysheet/web-dev.json" alt="HS web-dev docker"/></a>
+  <a href="https://hub.docker.com/layers/rubbaboy/hs"><img src="https://img.shields.io/docker/image-size/rubbaboy/hs" alt="Docker Size"/></a>
+  <a href="https://hub.docker.com/repository/docker/rubbaboy/hs"><img src="https://img.shields.io/endpoint?url=https://holysheet.net/shields/holysheet/master.json" alt="HS web-dev docker"/></a>
   <a href="https://hub.docker.com/repository/docker/rubbaboy/testback"><img src="https://img.shields.io/endpoint?url=https://holysheet.net/shields/holysheetwebserver/master.json" alt="testback master docker"/></a>
+  
 </p>
 
 HolySheet is a program that allows you to store arbitrary files onto Google Sheets, which does not lower storage quota on Google Drive. This is inspired by [uds](https://github.com/stewartmcgown/uds), however it can only store ~710KB of data per doc due to the use of Base64 and Docs limitations, and only has CLI usage.
