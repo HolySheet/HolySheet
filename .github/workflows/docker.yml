@@ -39,13 +39,10 @@ jobs:
       - name: Repository published
         run: echo "docker pull rubbaboy/hs:${{ steps.get_branch.outputs.branch }}-${{ steps.get_hash.outputs.hash }}"
       - name: Create docker shield
-        run: |-
-          mkdir -p shields/holysheet && echo "{ \"schemaVersion\": 1, \"label\": \"docker\", \"message\": \"rubbaboy/hs:${{ steps.get_branch.outputs.branch }}-${{ steps.get_hash.outputs.hash }}\", \"color\": \"#0576b7\" }" >> "shields/holysheet/${{ steps.get_branch.outputs.branch }}.json"
-      - name: FTP-Deploy-Action
-        uses: SamKirkland/FTP-Deploy-Action@2.0.0
-        env:
-          FTP_SERVER: ${{ secrets.FTP_SERVER }}
-          FTP_USERNAME: ${{ secrets.FTP_USER }}
-          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
-          LOCAL_DIR: shields
-          REMOTE_DIR: /var/www/holysheet.net/public_html/shields
+        uses: RubbaBoy/BYOB@v1.1.0
+        with:
+          NAME: hs
+          LABEL: docker
+          STATUS: "${{ steps.get_branch.outputs.branch }}-${{ steps.get_hash.outputs.hash }}"
+          COLOR: 0576B7
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
