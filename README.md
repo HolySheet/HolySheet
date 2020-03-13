@@ -18,9 +18,10 @@
   <b>
     <a href="https://holysheet.net/">Website</a> |
     <a href="https://docs.holysheet.net/">API Docs</a> |
-    <a href="https://www.youtube.com/watch?v=eyH4aXlB1Js">Demo Playlist</a> 
+    <a href="https://www.youtube.com/playlist?list=PLO52qFyWd_hyJtF0BfyYulwS4Ozq9wCTi">Demo Playlist</a> 
   </b>
 </p>
+
 
 
 HolySheet is a program that allows you to store arbitrary files onto Google Sheets, which does not lower storage quota on Google Drive. This is inspired by [uds](https://github.com/stewartmcgown/uds), however it can only store ~710KB of data per doc due to the use of Base64 and Docs limitations, and only has CLI usage.
@@ -63,33 +64,32 @@ Usage:
 
 ```bash
 Usage: ([-cm] -u=<file>... | [-cm] -e=<id> | -d=<name/id>... |  -r=<name/id>...)
-[-asixphlV]
+[-agphlzV]
   -a, --credentials=<credentials>
                              The (absolute or relative) location of your
-                               personal credentials.json file
+                               personal credentials.json file. If no file
+                               extension is found, it is assumed to be an
+                               environment variable
   -c, --compress             Compressed before uploading, currently uses Zip
                                format
-  -d, --download=<name>...   Download the remote file
-  -e, --clone=<id>...        Clones the remote file ID to Google Sheets
+  -d, --download=<id/name>...
+                             Download the remote file
+  -e, --clone=<id/name>...   Clones the remote file ID to Google Sheets
+  -g, --grpc=<grpc>          Starts the gRPC server on the given port, used to
+                               interface with other apps
   -h, --help                 Show this help message and exit.
-  -i, --io                   Starts communication via console
   -l, --list                 Lists the uploaded files in Google Sheets
   -m, --sheetSize=<sheetSize>
                              The maximum size in bytes a single sheet can be.
                                Defaults to 10MB
   -p, --parent=<parent>      Kills the process (When running with socket) when
                                the given PID is killed
-  -r, --remove=<id>...       Permanently removes the remote file
-  -s, --socket=<socket>      Starts communication socket on the given port,
-                               used to interface with other apps
+  -r, --remove=<id/name>...  Permanently removes the remote file
   -u, --upload=<file>...     Upload the local file
   -V, --version              Print version information and exit.
-  -x, --codeexec             Enables Java code execution required on some
-                               clients. Not recommended while running with
-                               sockets.
+  -z, --local-auth           If the authentication should take place on the
+                               local machine
 ```
-
-
 
 Remote file listing (`-l`)
 
@@ -102,39 +102,34 @@ InfinityWar.mp4        507.0 MB   51       Amazon Accounts        12-16-2019   1
 bob.mp4                59.7 MB    6        Amazon Accounts        12-16-2019   1z9YXGpE5wufpDswqTzuJx5AbIST9wIrZ
 ```
 
-// After this in the README will be refactored soon
 
-## GUI Demo
+### Kubernetes
 
-The following is a video of the Installation and usage of SheetyGUI. For just a usage demo, skip to [2:06](https://youtu.be/W3wyBj26rsg?t=126)
+Hosting the HolySheet website is very simple with the help of Kubernetes.
 
-[![HolySheet Installation/Demo](screenshots/Thumbnail.png)](https://youtu.be/W3wyBj26rsg)
-
-https://youtu.be/W3wyBj26rsg
-
-## Kubernetes
-
-To add the HolySheet API to your kubernetes cluster, simply run the following command
+1. Enable the [Google Drive API](https://developers.google.com/drive/api/v3/quickstart/java) and [Sheets API](https://developers.google.com/sheets/api/quickstart/java)
+2. Download the client configuration as `credentials.json`
+3. Run the following command to create secrets and deploy the cluster
 
 ```bash
-$ curl -sL http://holysheet.net/bash/deploy.sh -o deploy && chmod +x deploy && ./deploy 1 master-latest master-latest
+$ curl -sL http://holysheet.net/bash/deploy.sh -o deploy && chmod +x deploy && ./deploy 1 master-latest master-latest http://localhost/ credentials.json
 ```
 
-To update any containers or replica count, you can run the command below.
+The last line of the command output should be a command that can be ran to update things like replica count, container versions, etc. An example of this command is below.
 
 ```bash
-$ ./deploy 1 master-latest master-latest
+$ ./deploy 1 master-latest master-latest http://localhost/
 ```
-
-
 
  The parameters are:
 
-| Value         | Description                                               |
-| ------------- | --------------------------------------------------------- |
-| 1             | The amount of replicas/pods to create of the application. |
-| master-latest | The docker version* of the HolySheetWebserver image       |
-| master-latest | The docker version* of the HolySheet image                |
+| Value             | Description                                                  |
+| ----------------- | ------------------------------------------------------------ |
+| 1                 | The amount of replicas/pods to create of the application.    |
+| master-latest     | The docker version* of the HolySheetWebserver image          |
+| master-latest     | The docker version* of the HolySheet image                   |
+| http://localhost/ | The website URL to be the `Allow_Origin` header value        |
+| credentials.json  | The JSON file to create the Kubernetes secret. Should contain the Google API secret, and should not be present when updating the deploy, as this is persistant. |
 
 \* The docker versions are updated every commit. They are in the format of:
 

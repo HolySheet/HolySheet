@@ -43,6 +43,6 @@ jobs:
         with:
           NAME: hs
           LABEL: docker
-          STATUS: "${{ steps.get_branch.outputs.branch }}-${{ steps.get_hash.outputs.hash }}"
+          STATUS: "hs:${{ steps.get_branch.outputs.branch }}-${{ steps.get_hash.outputs.hash }}"
           COLOR: 0576B7
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
