@@ -2,6 +2,7 @@ package com.uddernetworks.holysheet.command;
 
 import com.google.api.services.drive.model.User;
 import com.uddernetworks.grpc.HolysheetService;
+import com.uddernetworks.grpc.HolysheetService.UploadRequest.Compression;
 import com.uddernetworks.holysheet.HolySheet;
 import com.uddernetworks.holysheet.SheetManager;
 import com.uddernetworks.holysheet.console.ConsoleTableBuilder;
@@ -22,7 +23,6 @@ import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
@@ -31,7 +31,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import static com.uddernetworks.grpc.HolysheetService.UploadRequest.Compression.*;
 import static com.uddernetworks.grpc.HolysheetService.UploadRequest.Upload.MULTIPART;
 import static com.uddernetworks.holysheet.utility.Utility.humanReadableByteCountSI;
 
@@ -60,8 +59,8 @@ public class CommandHandler implements Runnable {
     @Option(names = {"-p", "--parent"}, description = "Kills the process (When running with socket) when the given PID is killed")
     int parent = -1;
 
-    @Option(names = {"-c", "--compress"}, description = "Compressed before uploading, currently uses Zip format")
-    boolean compression;
+    @Option(names = {"-c", "--compress"}, description = "Name of the compression algorithm to use: zstd, zip, none")
+    String compression;
 
     @Option(names = {"-m", "--sheetSize"}, defaultValue = "10000000", description = "The maximum size in bytes a single sheet can be. Defaults to 10MB")
     int sheetSize;
@@ -182,7 +181,8 @@ public class CommandHandler implements Runnable {
             long start = System.currentTimeMillis();
             var name = FilenameUtils.getName(file.getAbsolutePath());
 
-            var ups = sheetIO.uploadDataFile(name, "/", file.length(), sheetSize, compression ? ZIP : NONE, MULTIPART, new FileInputStream(file));
+            var comp = sheetIO.parseLegacyCompression(compression);
+            var ups = sheetIO.uploadDataFile(name, "/", file.length(), sheetSize, comp, MULTIPART, new FileInputStream(file));
 
             LOGGER.info("Uploaded {} in {}ms", ups.getId(), System.currentTimeMillis() - start);
         } catch (IOException e) {
@@ -242,7 +242,7 @@ public class CommandHandler implements Runnable {
                 // false parameter - as it's not a sheet! cloning google drive documents.
             }
 
-            var method = compression ? ZIP : NONE;
+            var method = sheetIO.parseLegacyCompression(compression);
             sheetIO.cloneFile(idName, sheetSize, method);
         }
     }

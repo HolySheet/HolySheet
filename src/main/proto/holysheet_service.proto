@@ -55,7 +55,7 @@ message UploadRequest {
 
     enum Compression {
         NONE = 0;
-        ZIP = 1;
+        ZSTD = 2; // ZIP will be 1
     }
 }
 

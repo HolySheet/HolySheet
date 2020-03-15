@@ -43,6 +43,9 @@ dependencies {
     implementation "io.grpc:grpc-protobuf:${grpcVersion}"
     implementation "io.grpc:grpc-stub:${grpcVersion}"
 
+    implementation "com.github.luben:zstd-jni:1.4.4-7"
+
+
     runtimeOnly "io.grpc:grpc-netty-shaded:${grpcVersion}"
     compileOnly "javax.annotation:javax.annotation-api:1.2"
 }

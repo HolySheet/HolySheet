@@ -8,9 +8,11 @@ import com.uddernetworks.grpc.HolysheetService.UploadRequest.Compression;
 import com.uddernetworks.grpc.HolysheetService.UploadRequest.Upload;
 import com.uddernetworks.holysheet.Mime;
 import com.uddernetworks.holysheet.SheetManager;
+import com.uddernetworks.holysheet.compression.CompressionFactory;
 import com.uddernetworks.holysheet.encoding.DecodingOutputStream;
 import com.uddernetworks.holysheet.encoding.EncodingOutputStream;
 import com.uddernetworks.holysheet.utility.Utility;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,13 +27,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Scanner;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Future;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -60,93 +60,26 @@ public class SheetIO {
     }
 
     /**
-     * Download and uncompress a file stored by holysheet.
-     *
-     * @param destination  Destination {@link java.io.File} to store the downloaded file in on the local system.
-     * @param id           The id of the folder storing the chunks; i.e. the id of the file's parent folder.
-     * @return {@link CompletableFuture} downloaded and uncompressed file.
-     */
-    public CompletableFuture<File> downloadData(java.io.File destination, String id) {
-        return downloadData(destination, id, $ -> {
-        });
-    }
-
-    /**
-     * Download and uncompress a file stored by holysheet.
-     *
-     * @param destination  Destination {@link java.io.File} to store the downloaded file in on the local system.
-     * @param id           The id of the folder storing the chunks; i.e. the id of the file's parent folder.
-     * @param statusUpdate {@link Consumer} to be accepted when a chunk has been downloaded.
-     * @return {@link CompletableFuture} downloaded and uncompressed file.
-     */
-    public CompletableFuture<File> downloadData(java.io.File destination, String id, Consumer<Double> statusUpdate) {
-        return CompletableFuture.supplyAsync(() -> {
-            try {
-                var parent = sheetManager.getFile(id, DRIVE_FIELDS);
-
-                if (parent == null) {
-                    throw new RuntimeException("Couldn't find id " + id);
-                }
-
-                var props = parent.getProperties();
-                if (!props.get("directParent").equals("true")) {
-                    throw new RuntimeException("Not a direct parent!");
-                }
-
-                // Defaults to NONE(0), will never be null
-                var compression = parseLegacyCompression(props.get("compressed"));
-
-                LOGGER.info("File compression: {}", compression.name());
-
-                var files = sheetManager.getAllSheets(parent.getId());
-
-                LOGGER.info("Found {} children", files.size());
-
-                var encodingOut = new DecodingOutputStream<>(new FileOutputStream(destination));
-                var downloadedIndex = new double[]{0};
-
-                files.stream().sorted(Comparator.comparingInt(file -> {
-                    var fp = file.getProperties();
-                    return fp == null ? -1 : Integer.parseInt(fp.get("index"));
-                })).forEach(file -> {
-                    downloadSheet(file, encodingOut);
-                    statusUpdate.accept(downloadedIndex[0]++ / (double) files.size());
-                });
-
-                encodingOut.close();
-
-                LOGGER.info("Downloaded {} sheets", files.size());
-
-                if (compression == Compression.ZIP) {
-                    LOGGER.error("Ignoring compression! This is only due to being in a development environment");
-//                    LOGGER.info("Uncompressing data...");
-//                    finalStream = CompressionUtils.uncompressToOutputStream(encodingOut.getOut().toByteArray());
-                }
-
-                LOGGER.info("Downloaded and unencoded {}", humanReadableByteCountSI(destination.length()));
-                return parent;
-            } catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
-        });
-    }
-
-    /**
      * Parse the compression property to a {@link Compression} enumeration.
-     * This will be changed when compression is implemented!! May return null
-     * if a number is passed and it's not 1 or 0. Implementation will be changed.
+     * This can be done by its id, e.g. ZSTD = 2, ZIP = 1, NONE = 0
+     * Or it can be done by its name.
      *
      * @param compression Compression format as a string
-     * @return ZIP enumeration if the string is 'true' or 1, otherwise NONE if 'false' of 0.
+     * @return Compression represented; if an invalid string is passed then NONE is returned.
      */
-    private Compression parseLegacyCompression(String compression) {
-        if (compression.equals("true")) {
-            return Compression.ZIP;
-        } else if (compression.equals("false")) {
+    public Compression parseLegacyCompression(String compression) {
+        if (compression == null)
             return Compression.NONE;
+
+        Compression comp;
+        if (StringUtils.isNumeric(compression)) {
+            var num = Utility.tryParse(compression, 0);
+            comp = Compression.forNumber(Math.max(num, 0));
+        } else {
+            comp = Compression.valueOf(compression.toUpperCase());
         }
 
-        return Compression.forNumber(Utility.tryParse(compression, 0));
+        return comp != null ? comp : Compression.NONE;
     }
 
     /**
@@ -177,29 +110,124 @@ public class SheetIO {
         }
     }
 
-    public CompletableFuture<File> uploadDataStream(String title, String path, long fileSize, long maxSheetSize, Compression compress, Upload uploadType, EncodingOutputStream outputStream) throws IOException {
-        path = cleanPath(path);
+    /**
+     * Download and uncompress a file stored by holysheet.
+     *
+     * @param destination  Destination {@link java.io.File} to store the downloaded file in on the local system.
+     * @param id           The id of the folder storing the chunks; i.e. the id of the file's parent folder.
+     * @param statusUpdate {@link Consumer} to be accepted when a chunk has been downloaded.
+     * @return {@link CompletableFuture} downloaded and uncompressed file.
+     */
+    public CompletableFuture<File> downloadData(java.io.File destination, String id, Consumer<Double> statusUpdate) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                var parent = sheetManager.getFile(id, DRIVE_FIELDS);
 
-        var parent = sheetManager.createFolder(title, sheetManager.getSheetStore(), Map.of(
-                "directParent", "true",
-                "starred", "false",
-                "processing", "true",
-                "size", "0",
-                "sheets", "0",
-                "path", path,
-                "compressed", String.valueOf(compress.getNumber())
-        ));
+                if (parent == null) {
+                    throw new RuntimeException("Couldn't find id " + id);
+                }
 
-        LOGGER.info("Created parent sheetStore/{} ({})", parent.getName(), parent.getId());
+                var props = parent.getProperties();
+                if (!props.get("directParent").equals("true")) {
+                    throw new RuntimeException("Not a direct parent!");
+                }
 
-        return processRawStream(outputStream, fileSize, (int) maxSheetSize, parent, uploadType).thenApply($ -> parent);
+                var compression = parseLegacyCompression(props.get("compressed"));
+                LOGGER.info("File compression: {}", compression.name().toLowerCase());
+
+                var files = sheetManager.getAllSheets(parent.getId());
+                LOGGER.info("Found {} chunks", files.size());
+
+                var decodingOut = new DecodingOutputStream<>(new FileOutputStream(destination));
+                var downloadedIndex = new double[]{0};
+
+                files.stream().sorted(Comparator.comparingInt(file -> {
+                    var fp = file.getProperties();
+                    return fp == null ? -1 : Integer.parseInt(fp.get("index"));
+                })).forEach(file -> {
+                    downloadSheet(file, decodingOut);
+                    statusUpdate.accept(downloadedIndex[0]++ / (double) files.size());
+                });
+
+                decodingOut.close();
+                LOGGER.info("Downloaded {} chunks", files.size());
+                LOGGER.info("Unencoded to {}", humanReadableByteCountSI(destination.length()));
+
+                var alg = CompressionFactory.getAlgorithm(compression);
+                if (alg != null) {
+                    long bytes = alg.decompressFile(destination);
+                    LOGGER.info(
+                            "Decompressed using {} to {}",
+                            compression.name().toLowerCase(),
+                            humanReadableByteCountSI(bytes)
+                    );
+                }
+
+                return parent;
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        });
     }
 
+    /**
+     * Download and uncompress a file stored by holysheet.
+     *
+     * @param destination  Destination {@link java.io.File} to store the downloaded file in on the local system.
+     * @param id           The id of the folder storing the chunks; i.e. the id of the file's parent folder.
+     * @return {@link CompletableFuture} downloaded and uncompressed file.
+     */
+    public CompletableFuture<File> downloadData(java.io.File destination, String id) {
+        return downloadData(destination, id, (a) -> {});
+    }
+
+    /**
+     * Upload a {@link FileChunk} to its parent folder - where the parent folder
+     * represents a file stored by holysheet.
+     *
+     * @param chunk {@link FileChunk} to upload.
+     * @param uploadType {@link Upload} enumeration.
+     * @return {@link File} google sheet chunk.
+     */
+    private File processChunk(FileChunk chunk, Upload uploadType) {
+        try {
+            LOGGER.info("Uploading chunk-{}", chunk.getIndex() + 1);
+
+            var content = new ByteArrayContent("text/tab-separated-values", chunk.getBytes());
+            var parent = chunk.getParent();
+            var request = drive.files().create(new File()
+                    .setMimeType(Mime.SHEET.getMime())
+                    .setName("chunk-" + chunk.getIndex())
+                    .setProperties(chunk.getProperties())
+                    .setParents(Collections.singletonList(parent.getId())), content)
+                    .setFields("id");
+
+            request.getMediaHttpUploader()
+                    .setDirectUploadEnabled(uploadType == Upload.DIRECT)
+                    .setChunkSize(20 * 0x100000); // 20MB (Default 10)
+
+            return request.execute();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /**
+     * Process the raw {@link EncodingOutputStream} stream. I.e., attach a chunk consumer, and closing consumer.
+     * For every chunk written, it will create a new {@link FileChunk} and process it, via
+     * {@link #processChunk(FileChunk, Upload)}.
+     *
+     * @param encodingOut {@link EncodingOutputStream}.
+     * @param totalSize Total file size.
+     * @param maxLength Maximum size per sheet (chunk).
+     * @param parent {@link File} (drive) parent file.
+     * @param uploadType {@link Upload} type.
+     * @return {@link CompletableFuture} for completion.
+     */
     private CompletableFuture<Void> processRawStream(EncodingOutputStream encodingOut, long totalSize, int maxLength, File parent, Upload uploadType) {
 
         // ~22% overhead
         int estimatedChunks = (int) Math.ceil((totalSize * 1.22) / (double) maxLength);
-
         LOGGER.info("File size: {} estimated chunks: {}", humanReadableByteCountSI(totalSize), estimatedChunks);
 
         long start = System.currentTimeMillis();
@@ -257,16 +285,22 @@ public class SheetIO {
         return completer;
     }
 
-    public File uploadDataFile(String title, String path, long fileSize, long maxSheetSize, Compression compress, Upload uploadType, InputStream data) throws IOException {
-        return uploadDataFile(title, path, fileSize, maxSheetSize, compress, uploadType, data, null);
-    }
-
-    public File uploadDataFile(String title, String path, long fileSize, long maxSheetSize, Compression compress, Upload uploadType, InputStream data, Consumer<Double> statusUpdate) throws IOException {
+    /**
+     * Upload an {@link EncodingOutputStream} to drive by creating a parent folder, then calling
+     * {@link #processRawStream(EncodingOutputStream, long, int, File, Upload)}.
+     *
+     * @param title Title for the folder.
+     * @param path Path property for the folder created.
+     * @param fileSize File size of stream.
+     * @param maxSheetSize Maximum size per sheet (chunk).
+     * @param compress {@link Compression} type.
+     * @param uploadType {@link Upload} type.
+     * @param outputStream {@link EncodingOutputStream} to upload.
+     * @return {@link CompletableFuture} for completion.
+     * @throws IOException Possible exception when creating the parent folder on drive.
+     */
+    public CompletableFuture<File> uploadDataStream(String title, String path, long fileSize, long maxSheetSize, Compression compress, Upload uploadType, EncodingOutputStream outputStream) throws IOException {
         path = cleanPath(path);
-        if (statusUpdate == null) {
-            statusUpdate = $ -> {
-            };
-        }
 
         var parent = sheetManager.createFolder(title, sheetManager.getSheetStore(), Map.of(
                 "directParent", "true",
@@ -280,21 +314,28 @@ public class SheetIO {
 
         LOGGER.info("Created parent sheetStore/{} ({})", parent.getName(), parent.getId());
 
-        processRawFile(data, fileSize, (int) maxSheetSize, parent, uploadType, statusUpdate);
-
-        return parent;
+        return processRawStream(outputStream, fileSize, (int) maxSheetSize, parent, uploadType).thenApply($ -> parent);
     }
 
+    /**
+     * Upload an {@link InputStream} of data, by splitting it into chunks, and processing each individual chunk.
+     * {@link #processChunk(FileChunk, Upload)}.
+     *
+     * @param input {@link InputStream} of data.
+     * @param totalSize size of the stream of data (file).
+     * @param maxLength Maximum size of each sheet (chunk).
+     * @param parent {@link File} (drive) parent file/folder.
+     * @param uploadType {@link Upload} type.
+     * @param statusUpdate {@link Consumer} for updating, called once each chunk is updated with the decimal ratio of
+     *                                     completion, i.e. 0.5D is 50% complete, and 1.0D is 100% completed.
+     * @throws IOException From {@link EncodingOutputStream#encode(InputStream, long, BiConsumer)}.
+     */
     private void processRawFile(InputStream input, long totalSize, int maxLength, File parent, Upload uploadType, Consumer<Double> statusUpdate) throws IOException {
-
-        // ~22% overhead
-        int estimatedChunks = (int) Math.ceil((totalSize * 1.22) / (double) maxLength);
-
+        int estimatedChunks = (int) Math.ceil((totalSize * 1.22) / (double) maxLength); // ~22% overhead
         LOGGER.info("File size: {} estimated chunks: {}", humanReadableByteCountSI(totalSize), estimatedChunks);
 
         long start = System.currentTimeMillis();
         boolean[] sentMax = {false};
-
         statusUpdate.accept(0D);
 
         var encodingOut = EncodingOutputStream.encode(input, maxLength, (index, bytes) -> {
@@ -348,34 +389,45 @@ public class SheetIO {
     }
 
     /**
-     * Upload a {@link FileChunk} to its parent folder - where the parent folder
-     * represents a file stored by holysheet.
+     * Create a parent {@link File} (drive) and then upload this file, by calling
+     * {@link #processRawFile(InputStream, long, int, File, Upload, Consumer)}.
      *
-     * @param chunk {@link FileChunk} to upload.
-     * @param uploadType {@link Upload} enumeration.
-     * @return {@link File} google sheet chunk.
+     * @param title Title of the parent file.
+     * @param path Path property for the parent file.
+     * @param fileSize The size of the file to upload.
+     * @param maxSheetSize Maximum size per sheet (chunk).
+     * @param compress {@link Compression} type.
+     * @param uploadType {@link Upload} type.
+     * @param stream {@link InputStream} stream of (pre-compressed) data to upload.
+     * @param statusUpdate {@link Consumer} for status updates, defined in
+     *                                      {@link #processRawFile(InputStream, long, int, File, Upload, Consumer)}.
+     * @return Parent {@link File} (drive).
+     * @throws IOException From creating the parent folder, or processing the raw file.
      */
-    private File processChunk(FileChunk chunk, Upload uploadType) {
-        try {
-            LOGGER.info("Uploading chunk-{}", chunk.getIndex() + 1);
-
-            var content = new ByteArrayContent("text/tab-separated-values", chunk.getBytes());
-            var parent = chunk.getParent();
-            var request = drive.files().create(new File()
-                    .setMimeType(Mime.SHEET.getMime())
-                    .setName("chunk-" + chunk.getIndex())
-                    .setProperties(chunk.getProperties())
-                    .setParents(Collections.singletonList(parent.getId())), content)
-                    .setFields("id");
-
-            request.getMediaHttpUploader()
-                    .setDirectUploadEnabled(uploadType == Upload.DIRECT)
-                    .setChunkSize(20 * 0x100000); // 20MB (Default 10)
-
-            return request.execute();
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
+    public File uploadDataFile(String title, String path, long fileSize, long maxSheetSize, Compression compress, Upload uploadType, InputStream stream, Consumer<Double> statusUpdate) throws IOException {
+        path = cleanPath(path);
+        if (statusUpdate == null) {
+            statusUpdate = (a) -> {};
         }
+
+        var parent = sheetManager.createFolder(title, sheetManager.getSheetStore(), Map.of(
+                "directParent", "true",
+                "starred", "false",
+                "processing", "true",
+                "size", "0",
+                "sheets", "0",
+                "path", path,
+                "compressed", String.valueOf(compress.getNumber())
+        ));
+
+        LOGGER.info("Created parent sheetStore/{} ({})", parent.getName(), parent.getId());
+
+        processRawFile(stream, fileSize, (int) maxSheetSize, parent, uploadType, statusUpdate);
+        return parent;
+    }
+
+    public File uploadDataFile(String title, String path, long fileSize, long maxSheetSize, Compression compress, Upload uploadType, InputStream stream) throws IOException {
+        return uploadDataFile(title, path, fileSize, maxSheetSize, compress, uploadType, stream, null);
     }
 
     public void setStarred(String id, boolean starred) throws IOException {
@@ -510,11 +562,10 @@ public class SheetIO {
             var in = fileData.getIn();
 
             var name = file.getName();
-
             LOGGER.info("Saving {}...", name);
 
             try {
-                uploadDataFile(name, "/", fileData.getSize(), maxSheetSize, compress, Upload.MULTIPART, in);
+                uploadDataFile(name, "/", fileData.getSize(), maxSheetSize, compress, Upload.MULTIPART, in, null);
             } catch (IOException e) {
                 LOGGER.error("An error occurred while uploading the " + fileId, e);
             }
