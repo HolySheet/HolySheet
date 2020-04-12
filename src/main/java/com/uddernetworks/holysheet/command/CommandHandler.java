@@ -164,12 +164,12 @@ public class CommandHandler implements Runnable {
         long start = System.currentTimeMillis();
         var upload = param.upload;
         for (var file : upload) {
-            uploadFile(file);
+            uploadFile(file, comp);
         }
         LOGGER.info("Finished the uploading of {} file{} in {}ms", upload.length, upload.length == 1 ? "" : "s", System.currentTimeMillis() - start);
     }
 
-    private void uploadFile(File file) {
+    private void uploadFile(File file, Compression compression) {
         if (!file.isFile()) {
             LOGGER.error("File '{}' does not exist!", file.getAbsolutePath());
             return;

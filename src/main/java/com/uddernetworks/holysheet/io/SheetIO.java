@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -404,7 +405,7 @@ public class SheetIO {
      * @return Parent {@link File} (drive).
      * @throws IOException From creating the parent folder, or processing the raw file.
      */
-    public File uploadDataFile(String title, String path, long fileSize, long maxSheetSize, Compression compress, Upload uploadType, InputStream stream, Consumer<Double> statusUpdate) throws IOException {
+    public File uploadDataFileStream(String title, String path, long fileSize, long maxSheetSize, Compression compress, Upload uploadType, InputStream stream, Consumer<Double> statusUpdate) throws IOException {
         path = cleanPath(path);
         if (statusUpdate == null) {
             statusUpdate = (a) -> {};
@@ -426,8 +427,25 @@ public class SheetIO {
         return parent;
     }
 
-    public File uploadDataFile(String title, String path, long fileSize, long maxSheetSize, Compression compress, Upload uploadType, InputStream stream) throws IOException {
-        return uploadDataFile(title, path, fileSize, maxSheetSize, compress, uploadType, stream, null);
+    public File uploadDataFile(String title, String path, long fileSize, long maxSheetSize, Compression compress, Upload uploadType, java.io.File file, Consumer<Double> statusUpdate) throws IOException {
+        var alg = CompressionFactory.getAlgorithm(compress);
+        FileInputStream stream;
+
+        Path tempPath;
+        if (alg != null && (tempPath = alg.compressToTemp(file)) != null) {
+            stream = new FileInputStream(tempPath.toFile());
+            LOGGER.info(
+                    "Compressed using {} to {}",
+                    alg.getCompressionType().name().toLowerCase(),
+                    humanReadableByteCountSI(tempPath.toFile().length())
+            );
+        } else stream = new FileInputStream(file);
+
+        return uploadDataFileStream(title, path, fileSize, maxSheetSize, compress, uploadType, stream, statusUpdate);
+    }
+
+    public File uploadDataFile(String title, String path, long fileSize, long maxSheetSize, Compression compress, Upload uploadType, java.io.File file) throws IOException {
+        return uploadDataFile(title, path, fileSize, maxSheetSize, compress, uploadType, file, null);
     }
 
     public void setStarred(String id, boolean starred) throws IOException {
@@ -565,7 +583,7 @@ public class SheetIO {
             LOGGER.info("Saving {}...", name);
 
             try {
-                uploadDataFile(name, "/", fileData.getSize(), maxSheetSize, compress, Upload.MULTIPART, in, null);
+                uploadDataFileStream(name, "/", fileData.getSize(), maxSheetSize, compress, Upload.MULTIPART, in, null);
             } catch (IOException e) {
                 LOGGER.error("An error occurred while uploading the " + fileId, e);
             }

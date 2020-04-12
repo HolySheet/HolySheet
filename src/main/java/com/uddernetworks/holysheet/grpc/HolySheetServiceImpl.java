@@ -129,7 +129,7 @@ public class HolySheetServiceImpl extends HolySheetServiceImplBase {
 
                     long start = System.currentTimeMillis();
 
-                    var uploaded = sheetIO.uploadDataFile(name, path, fileSize, request.getSheetSize(), request.getCompression(), request.getUpload(), data);
+                    var uploaded = sheetIO.uploadDataFileStream(name, path, fileSize, request.getSheetSize(), request.getCompression(), request.getUpload(), data, null);
 
                     LOGGER.info("Uploaded {} in {}ms", uploaded.getId(), System.currentTimeMillis() - start);
 
