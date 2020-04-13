@@ -47,7 +47,8 @@ public class DecodingOutputStream<T extends OutputStream> extends ByteArrayFilte
 
     @Override
     public void write(int b) throws IOException {
-        if (b == 10 || b == 13) return;
+        // newline, carriage return, \
+        if (b == 10 || b == 13 || b == 92) return;
 
         if (dv == -1) {
             dv = DECODING_TABLE[b];

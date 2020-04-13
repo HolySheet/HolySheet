@@ -87,10 +87,8 @@ public class EncodingOutputStream extends FilterOutputStream {
                 }
             }
 
-            buffer.write(first);
-            buffer.write(second);
-            length += 2;
-            bufferLength += 2;
+            writeBuffer(first);
+            writeBuffer(second);
         }
     }
 
@@ -104,11 +102,9 @@ public class EncodingOutputStream extends FilterOutputStream {
     @Override
     public void flush() throws IOException {
         if (en > 0) {
-            buffer.write(ENCODING_TABLE[ebq % BASE]);
-            length++;
+            writeBuffer(ENCODING_TABLE[ebq % BASE]);
             if (en > 7 || ebq > 90) {
-                buffer.write(ENCODING_TABLE[ebq / BASE]);
-                length++;
+                writeBuffer(ENCODING_TABLE[ebq / BASE]);
             }
         }
 
@@ -121,6 +117,16 @@ public class EncodingOutputStream extends FilterOutputStream {
         if (onClose != null) {
             onClose.run();
         }
+    }
+
+    private void writeBuffer(byte b) {
+        if (b == '"') {
+            writeBuffer((byte) '\\');
+        }
+
+        buffer.write(b);
+        length++;
+        bufferLength++;
     }
 
     public void setChunkConsumer(BiConsumer<Integer, byte[]> chunkConsumer) {
