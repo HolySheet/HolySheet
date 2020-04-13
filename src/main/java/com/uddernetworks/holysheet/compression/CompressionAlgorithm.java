@@ -3,6 +3,7 @@ package com.uddernetworks.holysheet.compression;
 import com.uddernetworks.grpc.HolysheetService;
 
 import java.io.*;
+import java.nio.file.Path;
 
 /**
  * @author Chris L R.
@@ -18,23 +19,61 @@ public interface CompressionAlgorithm {
     HolysheetService.UploadRequest.Compression getCompressionType();
 
     /**
-     * Decompress a {@link File}, saving it in the same location, and return the length of the new file,
-     * in bytes.
+     * Decompress a given {@link File} and store its decompressed contents in the given
+     * {@link Path}.
      *
-     * @param file {@link File} to decompress and save to.
-     * @return {@code long} amount of bytes.
-     * @throws IOException From writing and decompressing.
+     * @param file        File to decompress.
+     * @param destination Destination path to decompress this {@code file} to.
+     * @return boolean indicating success.
      */
-    long decompressFile(File file) throws IOException;
+    boolean decompressFile(File file, Path destination);
 
     /**
-     * Create an {@link InputStream} that decompresses all data that is read from another {@link InputStream}.
-     * Wrapping the other one.
+     * Decompress a given {@link File} and store its decompressed contents in a temporary
+     * file; this temporary file will be deleted when the program exits.
      *
-     * @param inputStream {@link InputStream} to decompress & wrap.
-     * @return {@link InputStream} that decompresses all data read from it.
-     * @throws IOException From decompressing.
+     * @param file        File to decompress.
+     * @return {@link Path} of temporary file, or null if unsuccessful operation.
      */
-    InputStream decompressStream(InputStream inputStream) throws IOException;
+    Path decompressToTemp(File file);
+
+    /**
+     * Decompress a given {@link File} and overwrite its contents with the
+     * decompressed data. If the process was not successful, then the original file is
+     * not overwritten.
+     *
+     * @param file File to decompress.
+     * @return boolean indicating success.
+     */
+    boolean decompressFile(File file);
+
+    /**
+     * Compress a given {@link File} and store its compressed contents in the given
+     * {@link Path}.
+     *
+     * @param file        File to compress.
+     * @param destination Destination path to compress this {@code file} to.
+     * @return boolean indicating success.
+     */
+    boolean compressFile(File file, Path destination);
+
+    /**
+     * Compress a given {@link File} and store its compressed contents in a temporary
+     * file; this temporary file will be deleted when the program exits.
+     *
+     * @param file        File to compress.
+     * @return {@link Path} of temporary file, or null if unsuccessful operation.
+     */
+    Path compressToTemp(File file);
+
+    /**
+     * Compress a given {@link File} and overwrite its contents with the
+     * compressed data. If the process was not successful, then the original file is
+     * not overwritten.
+     *
+     * @param file File to compress.
+     * @return boolean indicating success.
+     */
+    boolean compressFile(File file);
 
 }

@@ -8,6 +8,7 @@ import com.uddernetworks.grpc.HolysheetService.UploadRequest.Compression;
 import com.uddernetworks.grpc.HolysheetService.UploadRequest.Upload;
 import com.uddernetworks.holysheet.Mime;
 import com.uddernetworks.holysheet.SheetManager;
+import com.uddernetworks.holysheet.compression.CompressionAlgorithm;
 import com.uddernetworks.holysheet.compression.CompressionFactory;
 import com.uddernetworks.holysheet.encoding.DecodingOutputStream;
 import com.uddernetworks.holysheet.encoding.EncodingOutputStream;
@@ -102,10 +103,10 @@ public class SheetIO {
                 LOGGER.info("Downloading sheet#unknown");
             }
 
-            var byteOut = new ByteArrayOutputStream();
-            drive.files().export(file.getId(), "text/tab-separated-values").executeMediaAndDownloadTo(byteOut);
+//            var byteOut = new ByteArrayOutputStream();
+            drive.files().export(file.getId(), "text/tab-separated-values").executeMediaAndDownloadTo(out);
 
-            out.write(byteOut.toByteArray());
+//            out.write(byteOut.toByteArray());
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
@@ -155,12 +156,11 @@ public class SheetIO {
                 LOGGER.info("Unencoded to {}", humanReadableByteCountSI(destination.length()));
 
                 var alg = CompressionFactory.getAlgorithm(compression);
-                if (alg != null) {
-                    long bytes = alg.decompressFile(destination);
+                if (alg != null && alg.decompressFile(destination)) {
                     LOGGER.info(
                             "Decompressed using {} to {}",
                             compression.name().toLowerCase(),
-                            humanReadableByteCountSI(bytes)
+                            humanReadableByteCountSI(destination.length())
                     );
                 }
 

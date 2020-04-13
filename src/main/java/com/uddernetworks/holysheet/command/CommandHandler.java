@@ -5,6 +5,8 @@ import com.uddernetworks.grpc.HolysheetService;
 import com.uddernetworks.grpc.HolysheetService.UploadRequest.Compression;
 import com.uddernetworks.holysheet.HolySheet;
 import com.uddernetworks.holysheet.SheetManager;
+import com.uddernetworks.holysheet.compression.CompressionAlgorithm;
+import com.uddernetworks.holysheet.compression.CompressionFactory;
 import com.uddernetworks.holysheet.console.ConsoleTableBuilder;
 import com.uddernetworks.holysheet.io.SheetIO;
 import org.apache.commons.io.FilenameUtils;
@@ -18,6 +20,7 @@ import picocli.CommandLine.Option;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
@@ -163,9 +166,12 @@ public class CommandHandler implements Runnable {
     private void upload() {
         long start = System.currentTimeMillis();
         var upload = param.upload;
+        var comp = sheetIO.parseLegacyCompression(compression);
+
         for (var file : upload) {
             uploadFile(file, comp);
         }
+
         LOGGER.info("Finished the uploading of {} file{} in {}ms", upload.length, upload.length == 1 ? "" : "s", System.currentTimeMillis() - start);
     }
 
@@ -181,9 +187,7 @@ public class CommandHandler implements Runnable {
             long start = System.currentTimeMillis();
             var name = FilenameUtils.getName(file.getAbsolutePath());
 
-            var comp = sheetIO.parseLegacyCompression(compression);
-            var ups = sheetIO.uploadDataFile(name, "/", file.length(), sheetSize, comp, MULTIPART, new FileInputStream(file));
-
+            var ups = sheetIO.uploadDataFile(name, "/", file.length(), sheetSize, compression, MULTIPART, file);
             LOGGER.info("Uploaded {} in {}ms", ups.getId(), System.currentTimeMillis() - start);
         } catch (IOException e) {
             LOGGER.error("Error reading and uploading file", e);
