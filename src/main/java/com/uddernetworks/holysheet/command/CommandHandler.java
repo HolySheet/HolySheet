@@ -1,11 +1,9 @@
 package com.uddernetworks.holysheet.command;
 
 import com.google.api.services.drive.model.User;
-import com.uddernetworks.grpc.HolysheetService;
 import com.uddernetworks.grpc.HolysheetService.UploadRequest.Compression;
 import com.uddernetworks.holysheet.HolySheet;
 import com.uddernetworks.holysheet.SheetManager;
-import com.uddernetworks.holysheet.compression.CompressionAlgorithm;
 import com.uddernetworks.holysheet.compression.CompressionFactory;
 import com.uddernetworks.holysheet.console.ConsoleTableBuilder;
 import com.uddernetworks.holysheet.io.SheetIO;
@@ -18,9 +16,7 @@ import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Option;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.nio.file.Path;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
@@ -44,7 +40,7 @@ public class CommandHandler implements Runnable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CommandHandler.class);
     public static final DateFormat DATE_FORMAT = new SimpleDateFormat("MM-dd-yyyy");
-    public static final Pattern ID_PATTERN = Pattern.compile("([a-zA-Z0-9-_]+)");
+    public static final Pattern ID_PATTERN = Pattern.compile("([-\\w]{25,})$");
 
     private final HolySheet holySheet;
     private SheetManager sheetManager;
@@ -62,7 +58,7 @@ public class CommandHandler implements Runnable {
     @Option(names = {"-p", "--parent"}, description = "Kills the process (When running with socket) when the given PID is killed")
     int parent = -1;
 
-    @Option(names = {"-c", "--compress"}, description = "Name of the compression algorithm to use: zstd, zip, none")
+    @Option(names = {"-c", "--compress"}, description = "Name of the compression algorithm to use: zstd, tarball-gzip, none")
     String compression;
 
     @Option(names = {"-m", "--sheetSize"}, defaultValue = "10000000", description = "The maximum size in bytes a single sheet can be. Defaults to 10MB")
@@ -166,7 +162,7 @@ public class CommandHandler implements Runnable {
     private void upload() {
         long start = System.currentTimeMillis();
         var upload = param.upload;
-        var comp = sheetIO.parseLegacyCompression(compression);
+        var comp = CompressionFactory.parseCompression(compression);
 
         for (var file : upload) {
             uploadFile(file, comp);
@@ -176,8 +172,13 @@ public class CommandHandler implements Runnable {
     }
 
     private void uploadFile(File file, Compression compression) {
-        if (!file.isFile()) {
-            LOGGER.error("File '{}' does not exist!", file.getAbsolutePath());
+        if (file.isDirectory() && compression == Compression.NONE) {
+            LOGGER.info(
+                    "No compression selected for directory {}, applying tarball-gzip archiving and compression!",
+                    file.getPath()
+            );
+        } else if (!file.isFile()) {
+            LOGGER.error("File {} does not exist!", file.getPath());
             return;
         }
 
@@ -210,7 +211,7 @@ public class CommandHandler implements Runnable {
             long start = System.currentTimeMillis();
             var sheet = sheetManager.getFile(idName);
 
-            if (sheet == null) { // probably won't return null, will just throw
+            if (sheet == null) {
                 LOGGER.info("Couldn't find file with id/name of {}", idName);
                 return CompletableFuture.completedFuture(null);
             }
@@ -246,7 +247,7 @@ public class CommandHandler implements Runnable {
                 // false parameter - as it's not a sheet! cloning google drive documents.
             }
 
-            var method = sheetIO.parseLegacyCompression(compression);
+            var method = CompressionFactory.parseCompression(compression);
             sheetIO.cloneFile(idName, sheetSize, method);
         }
     }

@@ -8,16 +8,13 @@ import com.uddernetworks.grpc.HolysheetService.UploadRequest.Compression;
 import com.uddernetworks.grpc.HolysheetService.UploadRequest.Upload;
 import com.uddernetworks.holysheet.Mime;
 import com.uddernetworks.holysheet.SheetManager;
-import com.uddernetworks.holysheet.compression.CompressionAlgorithm;
 import com.uddernetworks.holysheet.compression.CompressionFactory;
 import com.uddernetworks.holysheet.encoding.DecodingOutputStream;
 import com.uddernetworks.holysheet.encoding.EncodingOutputStream;
 import com.uddernetworks.holysheet.utility.Utility;
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -39,6 +36,7 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static com.uddernetworks.holysheet.SheetManager.PATH_REGEX;
+import static com.uddernetworks.holysheet.compression.CompressionFactory.*;
 import static com.uddernetworks.holysheet.utility.Utility.DRIVE_FIELDS;
 import static com.uddernetworks.holysheet.utility.Utility.humanReadableByteCountSI;
 
@@ -59,29 +57,6 @@ public class SheetIO {
         this.sheetManager = sheetManager;
         this.drive = drive;
         this.sheets = sheets;
-    }
-
-    /**
-     * Parse the compression property to a {@link Compression} enumeration.
-     * This can be done by its id, e.g. ZSTD = 2, ZIP = 1, NONE = 0
-     * Or it can be done by its name.
-     *
-     * @param compression Compression format as a string
-     * @return Compression represented; if an invalid string is passed then NONE is returned.
-     */
-    public Compression parseLegacyCompression(String compression) {
-        if (compression == null)
-            return Compression.NONE;
-
-        Compression comp;
-        if (StringUtils.isNumeric(compression)) {
-            var num = Utility.tryParse(compression, 0);
-            comp = Compression.forNumber(Math.max(num, 0));
-        } else {
-            comp = Compression.valueOf(compression.toUpperCase());
-        }
-
-        return comp != null ? comp : Compression.NONE;
     }
 
     /**
@@ -134,8 +109,8 @@ public class SheetIO {
                     throw new RuntimeException("Not a direct parent!");
                 }
 
-                var compression = parseLegacyCompression(props.get("compressed"));
-                LOGGER.info("File compression: {}", compression.name().toLowerCase());
+                var compression = parseCompression(props.get("compressed"));
+                LOGGER.info("File compression: {}", prettyName(compression));
 
                 var files = sheetManager.getAllSheets(parent.getId());
                 LOGGER.info("Found {} chunks", files.size());
@@ -159,7 +134,7 @@ public class SheetIO {
                 if (alg != null && alg.decompressFile(destination)) {
                     LOGGER.info(
                             "Decompressed using {} to {}",
-                            compression.name().toLowerCase(),
+                            prettyName(compression),
                             humanReadableByteCountSI(destination.length())
                     );
                 }
@@ -436,7 +411,7 @@ public class SheetIO {
             stream = new FileInputStream(tempPath.toFile());
             LOGGER.info(
                     "Compressed using {} to {}",
-                    alg.getCompressionType().name().toLowerCase(),
+                    prettyName(compress),
                     humanReadableByteCountSI(tempPath.toFile().length())
             );
         } else stream = new FileInputStream(file);
