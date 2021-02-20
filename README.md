@@ -1,6 +1,6 @@
 <h1 align="center">
     <p>HolySheet</p>
-    <img src="https://holysheet.net/logos/holysheet-256.png">
+    <img src="https://i.yarr.is/holysheet-256">
 </h1>
 <p align="center"><i>Store any file, of any size to Google Sheets</i></p>
 <hr><p align="center">
@@ -27,6 +27,8 @@
 HolySheet is a program that allows you to store arbitrary files onto Google Sheets, which does not lower storage quota on Google Drive. This is inspired by [uds](https://github.com/stewartmcgown/uds), however it can only store ~710KB of data per doc due to the use of Base64 and Docs limitations, and only has CLI usage.
 
 HolySheet allows for slow, but production-ready cold storage of files on your own Google account. It features a full [web interface](https://github.com/HolySheet/HolySheetWeb), [desktop app](https://github.com/HolySheet/SheetyGUI), and [CLI](https://github.com/HolySheet/HolySheet), along with both a [REST](https://github.com/HolySheet/HolySheetWebserver) and [gRPC](https://github.com/HolySheet/HolySheet/blob/master/src/main/proto/holysheet_service.proto#L154) API. When using HolySheet's website, no data is stored server-side, so you are in full control over all your data.
+
+**Notice: Due to insane costs and the fact that sheets are soon not going to be unlimited, the holysheet.net website is currently unavailable.**
 
 ## Features
 
