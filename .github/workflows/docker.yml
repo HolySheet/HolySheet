@@ -29,7 +29,7 @@ jobs:
         run: echo "##[set-output name=hash;]$(echo $(git rev-parse --short "$GITHUB_SHA") | cut -c1-6)"
         id: get_hash
       - name: Publish to Registry
-        uses: elgohr/Publish-Docker-Github-Action@master
+        uses: elgohr/Publish-Docker-Github-Action@v5
         with:
           name: rubbaboy/hs
           username: ${{ secrets.DOCKER_USERNAME }}
